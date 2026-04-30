@@ -1,6 +1,6 @@
 # Free Video Download
 
-一个基于 Python + FastAPI + yt-dlp 的万能视频下载站 MVP。用户可以粘贴公开视频链接，解析视频信息，选择清晰度，查看异步下载进度，并在完成后保存到本地。
+一个基于 Python + FastAPI + yt-dlp 的万能视频下载站 MVP。用户可以粘贴公开视频链接，解析视频信息，选择清晰度，查看异步下载进度，并在完成后保存到本地；也可以对带字幕的视频生成 AI 摘要、时间戳字幕、思维导图并继续追问。
 
 ## 功能
 
@@ -10,6 +10,9 @@
 - 异步下载任务和进度轮询。
 - 下载完成后返回文件。
 - 临时文件自动清理。
+- AI 视频总结：基于平台原生字幕生成视频总览、结构化要点和思维导图。
+- 带时间戳字幕展示和基于字幕内容的 AI 追问。
+- 免费限额：每 IP 每天 5 次，单视频最长 40 分钟。
 - 营销型首页、Pro 付费能力预留、移动端适配。
 
 ## 本地开发
@@ -31,6 +34,20 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```bash
 curl http://127.0.0.1:8000/api/health
 ```
+
+AI 视频总结需要配置 DeepSeek API Key：
+
+```bash
+set DEEPSEEK_API_KEY=sk-...
+```
+
+也可以在 `backend/.env` 写入：
+
+```bash
+DEEPSEEK_API_KEY=sk-...
+```
+
+默认使用 `deepseek-v4-flash`，通过 OpenAI Chat Completions 兼容接口调用 DeepSeek。MVP 仅使用平台原生字幕，无字幕视频会提示暂不支持。
 
 ### 前端
 
@@ -56,6 +73,7 @@ npm run build
 
 - [需求分析](docs/requirements-analysis.md)
 - [方案设计](docs/technical-design.md)
+- [AI 视频总结方案](docs/ai-summary-design.md)
 - [项目总结](docs/project-summary.md)
 
 ## 注意事项
@@ -64,6 +82,7 @@ npm run build
 - MVP 暂不支持用户上传 cookies。
 - 大文件会消耗磁盘空间，生产环境请配置独立临时目录、并发限制和更严格的清理策略。
 - 生产环境建议定期升级 `yt-dlp`。
+- AI 总结会将视频字幕发送给 DeepSeek 生成结果，请仅处理你有权查看和分析的内容。
 
 ## 免责声明
 

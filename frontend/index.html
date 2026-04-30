@@ -116,10 +116,16 @@
                   </p>
                   <div id="qualityList" class="quality-list"></div>
                 </div>
-                <button id="downloadBtn" class="primary-btn full" type="button">
-                  <i data-lucide="download"></i>
-                  <span>开始下载</span>
-                </button>
+                <div class="action-row">
+                  <button id="downloadBtn" class="primary-btn full" type="button">
+                    <i data-lucide="download"></i>
+                    <span>开始下载</span>
+                  </button>
+                  <button id="summaryBtn" class="ghost-btn full" type="button">
+                    <i data-lucide="brain-circuit"></i>
+                    <span>AI 总结</span>
+                  </button>
+                </div>
               </div>
             </article>
 
@@ -149,6 +155,32 @@
                 <i data-lucide="x-circle"></i>
                 <span>取消下载</span>
               </button>
+            </article>
+
+            <article id="summaryCard" class="summary-card hidden">
+              <div class="summary-head">
+                <div>
+                  <p class="small-label">
+                    <i data-lucide="sparkles"></i>
+                    <span>AI 视频总结</span>
+                  </p>
+                  <h3 id="summaryTitle">准备生成总结</h3>
+                </div>
+                <span id="summaryPct" class="progress-pct">0%</span>
+              </div>
+              <div class="progress-track">
+                <div id="summaryBar" class="progress-bar"></div>
+              </div>
+              <p id="summaryStage" class="summary-stage">等待开始</p>
+              <div id="summaryResult" class="summary-result hidden">
+                <div class="summary-tabs" role="tablist" aria-label="AI 总结结果">
+                  <button class="summary-tab active" type="button" data-summary-tab="outline">要点</button>
+                  <button class="summary-tab" type="button" data-summary-tab="transcript">字幕</button>
+                  <button class="summary-tab" type="button" data-summary-tab="mindmap">思维导图</button>
+                  <button class="summary-tab" type="button" data-summary-tab="chat">对话</button>
+                </div>
+                <div id="summaryTabPanel" class="summary-tab-panel"></div>
+              </div>
             </article>
           </section>
         </section>

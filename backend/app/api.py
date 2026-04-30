@@ -15,9 +15,11 @@ from .downloader import (
     run_download_task,
 )
 from .tasks import cancel_task, get_task
+from .summary.api import router as summary_router
 
 
 router = APIRouter()
+router.include_router(summary_router)
 
 
 class InfoRequest(BaseModel):

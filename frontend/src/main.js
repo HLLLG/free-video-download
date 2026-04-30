@@ -1,4 +1,5 @@
 import "./styles.css";
+import { initSummaryFeature } from "./summary.js";
 
 const state = {
   info: null,
@@ -356,3 +357,9 @@ if (document.readyState === "loading") {
 } else {
   refreshIcons();
 }
+
+initSummaryFeature(state, {
+  requestJson,
+  showStatus,
+  refreshIcons,
+});
