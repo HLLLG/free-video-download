@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="跨平台万能视频下载器，支持解析 1000+ 平台，选择清晰度后异步下载到本地。"
+    />
+    <title>Free Video Download - 万能视频下载器</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="site-header">
+        <nav class="nav container">
+          <a class="brand" href="#top" aria-label="Free Video Download">
+            <span class="brand-mark"><i data-lucide="download"></i></span>
+            <span>Free Video Download</span>
+          </a>
+          <div class="nav-links">
+            <a href="#platforms">支持平台</a>
+            <a href="#features">功能亮点</a>
+            <a href="#pricing">价格</a>
+            <button class="ghost-btn" type="button" data-scroll="#pricing">登录</button>
+            <button class="pro-btn" type="button" data-scroll="#pricing">
+              <i data-lucide="crown"></i>
+              <span>升级 Pro</span>
+            </button>
+          </div>
+        </nav>
+        <div id="platforms" class="platform-strip">
+          <div class="container platform-inner">
+            <span class="platform-label">
+              <i data-lucide="globe-2"></i>
+              <span>已支持</span>
+            </span>
+            <ul class="platform-list">
+              <li><i data-lucide="youtube"></i><span>YouTube</span></li>
+              <li><i data-lucide="play-circle"></i><span>Bilibili</span></li>
+              <li><i data-lucide="music-2"></i><span>Douyin</span></li>
+              <li><i data-lucide="video"></i><span>TikTok</span></li>
+              <li><i data-lucide="twitter"></i><span>X / Twitter</span></li>
+              <li><i data-lucide="instagram"></i><span>Instagram</span></li>
+              <li><i data-lucide="facebook"></i><span>Facebook</span></li>
+              <li class="more"><i data-lucide="plus"></i><span>1000+ 平台</span></li>
+            </ul>
+          </div>
+        </div>
+      </header>
+
+      <main id="top">
+        <section class="hero container">
+          <div class="hero-copy">
+            <p class="eyebrow">
+              <i data-lucide="sparkles"></i>
+              <span>基于 yt-dlp 的轻量封装 · 手机电脑都能用</span>
+            </p>
+            <h1>跨平台万能视频下载器<span>一键保存高清原片</span></h1>
+            <p class="hero-subtitle">
+              支持 YouTube、B站、抖音、TikTok、X、Instagram 等 1000+ 平台解析。粘贴链接，选择清晰度，实时查看下载进度。
+            </p>
+          </div>
+
+          <section class="download-panel" aria-label="视频解析面板">
+            <div class="input-card">
+              <label for="videoUrl">
+                <i data-lucide="link-2"></i>
+                <span>粘贴视频链接</span>
+              </label>
+              <div class="url-row">
+                <input
+                  id="videoUrl"
+                  name="videoUrl"
+                  type="url"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  autocomplete="off"
+                />
+                <button id="parseBtn" class="primary-btn" type="button">
+                  <i data-lucide="search"></i>
+                  <span>立即解析</span>
+                </button>
+              </div>
+              <p class="hint">
+                <i data-lucide="shield-check"></i>
+                <span>MVP 暂不缓存视频文件，下载完成 30 分钟后自动清理。</span>
+              </p>
+            </div>
+
+            <div id="statusBox" class="status-box hidden" role="status"></div>
+
+            <article id="resultCard" class="result-card hidden">
+              <div class="thumb-wrap">
+                <img id="thumbnail" alt="视频封面" />
+                <div class="thumb-fallback">
+                  <i data-lucide="image"></i>
+                  <span>封面加载中</span>
+                </div>
+                <span id="platformBadge" class="platform-badge">
+                  <i data-lucide="globe"></i>
+                  <span>平台</span>
+                </span>
+              </div>
+              <div class="video-meta">
+                <div>
+                  <p class="small-label">
+                    <i data-lucide="check-circle-2"></i>
+                    <span>解析成功</span>
+                  </p>
+                  <h2 id="videoTitle">视频标题</h2>
+                  <ul class="meta-stats" id="metaStats"></ul>
+                </div>
+                <div>
+                  <p class="small-label">
+                    <i data-lucide="settings-2"></i>
+                    <span>选择清晰度</span>
+                  </p>
+                  <div id="qualityList" class="quality-list"></div>
+                </div>
+                <button id="downloadBtn" class="primary-btn full" type="button">
+                  <i data-lucide="download"></i>
+                  <span>开始下载</span>
+                </button>
+              </div>
+            </article>
+
+            <article id="progressCard" class="progress-card hidden">
+              <div class="progress-head">
+                <div>
+                  <p class="small-label">
+                    <i data-lucide="loader-2"></i>
+                    <span>下载任务</span>
+                  </p>
+                  <h3 id="progressTitle">准备中</h3>
+                </div>
+                <span id="progressPct" class="progress-pct">0%</span>
+              </div>
+              <div class="progress-track">
+                <div id="progressBar" class="progress-bar"></div>
+              </div>
+              <div class="progress-stats">
+                <span id="speedText"><i data-lucide="zap"></i><span>速度：等待中</span></span>
+                <span id="etaText"><i data-lucide="timer"></i><span>剩余：--</span></span>
+              </div>
+              <a id="fileLink" class="download-link hidden" href="#" download>
+                <i data-lucide="download-cloud"></i>
+                <span>下载完成，保存到本地</span>
+              </a>
+              <button id="cancelBtn" class="ghost-btn full cancel-btn hidden" type="button">
+                <i data-lucide="x-circle"></i>
+                <span>取消下载</span>
+              </button>
+            </article>
+          </section>
+        </section>
+
+        <section id="features" class="section container">
+          <div class="section-title">
+            <p class="eyebrow">为什么值得升级</p>
+            <h2>从“能下载”到“高效保存素材库”</h2>
+            <p>核心下载免费跑通，Pro 能力用于后续商业化扩展：批量、4K、字幕翻译、视频总结都预留好了位置。</p>
+          </div>
+          <div class="feature-grid">
+            <article class="feature-card">
+              <span class="feature-icon"><i data-lucide="zap"></i></span>
+              <h3>极速解析</h3>
+              <p>直接封装 yt-dlp，不重复造轮子，平台适配能力跟随开源生态更新。</p>
+            </article>
+            <article class="feature-card">
+              <span class="feature-icon"><i data-lucide="film"></i></span>
+              <h3>高清保存</h3>
+              <p>支持 1080p 常用清晰度，后续可解锁 4K、8K 和更灵活的格式选择。</p>
+            </article>
+            <article class="feature-card">
+              <span class="feature-icon"><i data-lucide="smartphone"></i></span>
+              <h3>移动端友好</h3>
+              <p>页面布局为手机浏览器优化，适合随时粘贴链接、查看进度、保存文件。</p>
+            </article>
+            <article class="feature-card locked">
+              <span class="pro-chip">Pro</span>
+              <h3>批量下载</h3>
+              <p>后续支持多链接队列、合集解析、任务历史和失败重试。</p>
+            </article>
+            <article class="feature-card locked">
+              <span class="pro-chip">Pro</span>
+              <h3>AI 视频总结</h3>
+              <p>下载后自动提取字幕并生成摘要，适合学习、课程和素材整理。</p>
+            </article>
+            <article class="feature-card locked">
+              <span class="pro-chip">Pro</span>
+              <h3>字幕翻译</h3>
+              <p>保留字幕下载与翻译入口，后续接入 AI 翻译和双语字幕。</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="pricing" class="section pricing-section">
+          <div class="container">
+            <div class="section-title">
+              <p class="eyebrow">简单价格，清晰权益</p>
+              <h2>先让核心流程跑通，再逐步接入付费</h2>
+              <p>当前版本展示付费结构，真实支付会在账号系统稳定后接入。</p>
+            </div>
+            <div class="pricing-grid">
+              <article class="price-card">
+                <h3>Free</h3>
+                <p class="price">¥0</p>
+                <ul>
+                  <li>单链接解析</li>
+                  <li>720p / 1080p 下载</li>
+                  <li>30 分钟临时文件保留</li>
+                </ul>
+                <button class="ghost-btn full" type="button" data-scroll="#top">开始体验</button>
+              </article>
+              <article class="price-card highlight">
+                <span class="recommend">推荐</span>
+                <h3>Pro 月付</h3>
+                <p class="price">¥29<span>/月</span></p>
+                <ul>
+                  <li>4K / 8K 超清</li>
+                  <li>批量下载队列</li>
+                  <li>字幕与 AI 总结</li>
+                </ul>
+                <button class="pro-btn full" type="button">即将开放</button>
+              </article>
+              <article class="price-card">
+                <h3>Pro 年付</h3>
+                <p class="price">¥199<span>/年</span></p>
+                <ul>
+                  <li>省 43%</li>
+                  <li>更高并发额度</li>
+                  <li>优先支持新平台</li>
+                </ul>
+                <button class="ghost-btn full" type="button">加入候补</button>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="section container faq">
+          <div class="section-title">
+            <p class="eyebrow">FAQ</p>
+            <h2>下载前请先了解这些限制</h2>
+          </div>
+          <details open>
+            <summary>为什么有些视频解析失败？</summary>
+            <p>部分平台、会员内容、私密视频或高画质资源需要登录 cookies。MVP 暂不支持用户上传 cookies，后续会作为 Pro/高级能力开放。</p>
+          </details>
+          <details>
+            <summary>本站会保存我的视频吗？</summary>
+            <p>不会长期保存。MVP 使用临时目录处理下载任务，任务过期后自动清理。</p>
+          </details>
+          <details>
+            <summary>可以下载任何视频吗？</summary>
+            <p>请仅下载你有权获取和保存的内容。本站不绕过 DRM，不鼓励违反平台条款或版权规则的使用方式。</p>
+          </details>
+        </section>
+      </main>
+
+      <div id="proModal" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-card">
+          <button id="closeModal" class="modal-close" type="button" aria-label="关闭">×</button>
+          <p class="eyebrow">Pro 专享</p>
+          <h3>这个能力会在付费版开放</h3>
+          <p>当前先把核心下载流程跑通。后续可接入账号、支付、4K、批量下载、字幕翻译和 AI 总结。</p>
+          <button class="pro-btn full" type="button" data-scroll="#pricing">查看 Pro 方案</button>
+        </div>
+      </div>
+
+      <footer class="footer">
+        <div class="container">
+          <p>Free Video Download · yt-dlp 可视化封装</p>
+          <p>免责声明：所有内容版权归原作者所有，请仅下载你有权获取的内容，本站不长期缓存用户视频。</p>
+        </div>
+      </footer>
+    </div>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
