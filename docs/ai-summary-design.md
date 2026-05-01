@@ -52,6 +52,14 @@
 - 前端已新增总结结果卡，包含要点、字幕、思维导图、对话四个 Tab。
 - 思维导图通过 `markmap-autoloader@0.18.12` 从 CDN 渲染，加载失败时降级为树形文本。
 - 已使用带 `zh-CN` 字幕的 YouTube TED-Ed 视频完成真实总结和追问测试。
+- 新增 `backend/app/summary/bilibili_auth.py`：把 `BILIBILI_SESSDATA` 包装成 yt-dlp 接受的 Netscape cookies.txt 临时文件，并对 B 站 URL（含 `b23.tv`、`hdslb.com`、`biliapi.net`）的 HTTP 请求注入 `Referer` / `User-Agent` / `Cookie`，其他平台不串味。
+- `subtitles.py` 兼容 yt-dlp 把 B 站字幕 inline 进 `data` 字段的写法（B 站不像 YouTube 给字幕远端 `url`，而是已经把字幕反下载好转成 SRT 字符串塞回字典），并新增 `EXCLUDED_LANGUAGES = {"danmaku", "live_chat"}` 过滤掉 yt-dlp 给 B 站合成的弹幕轨。
+- 语言优先级补 `ai-zh` / `ai-en`，覆盖 B 站 AI 自动生成与 AI 翻译字幕。
+- 已使用 `https://www.bilibili.com/video/BV1mAAmzqEfP/`（210 秒，含 UP 上传 `zh` 字幕 + AI 自动 `ai-zh` + AI 翻译 `ai-ja/es/ar/pt`）完成完整 E2E：
+  - 字幕抽取：5 段，0:00-03:30 全覆盖。
+  - DeepSeek 总结：成功生成 `summary_text` / `outline_markdown` / `mindmap_markdown`。
+  - 追问 "作者为什么做这个项目" 返回带时间戳的精准引用。
+- 未配 SESSDATA 时对同一视频返回明确文案 "站点未配置 B 站登录态 Cookie"，不再被 "字幕内容为空" 掩盖。
 
 ## 3. 范围
 
@@ -383,17 +391,25 @@ DELETE /api/summary/{summary_id}
 
 通过 `yt-dlp` 的 Python API 拉取字幕信息，优先使用 `subtitles`，其次使用 `automatic_captions`。
 
-语言优先级：
+语言优先级（已扩充覆盖 B 站 AI 生成 / AI 翻译字幕）：
 
 ```python
 SUBTITLE_LANGUAGE_PRIORITY = [
     "zh-Hans",
     "zh-CN",
     "zh",
+    "ai-zh",   # B 站 AI 自动生成中文字幕（必须登录态）
     "zh-Hant",
     "en",
+    "ai-en",   # B 站 AI 翻译英文字幕（必须登录态）
 ]
 ```
+
+排除项：
+
+- yt-dlp 的 `BiliBili` 提取器无条件给 `subtitles` 字典塞一个 `danmaku` 语种，
+  指向弹幕 XML，不是真正字幕，必须过滤掉，否则匿名抓取会被误选中。
+- `live_chat` 类似处理。
 
 选择规则：
 
@@ -420,6 +436,37 @@ SUBTITLE_LANGUAGE_PRIORITY = [
 - 去除空白、HTML 标签、样式标签。
 - 合并过短片段，避免 LLM 输入碎片太多。
 - 保留 `start` / `end` 时间戳。
+
+### 8.2.1 B 站登录态 Cookie
+
+B 站把字幕分为：
+
+| 类型 | 是否登录 | yt-dlp 表现 |
+| --- | --- | --- |
+| UP 主上传字幕（`zh-CN` 等） | 多数情况需要 SESSDATA | `subtitles[lan]` |
+| AI 自动生成字幕（`ai-zh`） | **必须**登录 | `subtitles["ai-zh"]` |
+| AI 翻译字幕（`ai-en` 等） | **必须**登录 | `subtitles["ai-en"]` |
+
+实测：`/x/player/v2` 在没有 SESSDATA 时对很多视频直接返回 `need_login_subtitle: true` 且 `subtitles: []`。
+
+实现方式：
+
+1. `backend/app/summary/settings.py` 新增 `BILIBILI_SESSDATA`、`BILIBILI_BILI_JCT`、`BILIBILI_BUVID3`，从环境变量或 `backend/.env` 读取。
+2. `backend/app/summary/bilibili_auth.py` 把 Cookie 包装成 yt-dlp 接受的 Netscape `cookies.txt` 临时文件，作用域 `.bilibili.com`。
+3. `extract_subtitles` 检测到 B 站 URL 时把 `cookiefile` 透给 `yt-dlp`，处理完毕在 `finally` 中删除临时文件。
+4. 字幕直链 / 后续直接调 B 站 API 时，HTTP 头自动带 `Referer: https://www.bilibili.com`、Cookie、桌面 UA；非 B 站域名（YouTube、抖音等）走默认 UA，绝不串味。
+5. 没配 Cookie 时返回明确文案：「当前 B 站视频需要登录才能读取字幕……请运营方在 backend/.env 配置 BILIBILI_SESSDATA 后重试」，避免被笼统的「字幕内容为空」掩盖真因。
+
+风险与注意：
+
+- SESSDATA 由站长（运营方）的小号产生，所有用户共用；号被风控大家都受影响。
+- SESSDATA 一般 1-3 个月失效，需要手动续期。
+- 不暴露任何 Cookie 字段给前端；前端永远只能拿到「需要 Cookie」「Cookie 失效」之类的脱敏文案。
+
+后续演进：
+
+- ASR 兜底（SiliconFlow / 本地 faster-whisper）解决 Cookie 失效或视频本身没字幕的场景。
+- 浏览器扩展形态复用用户当前 B 站登录态。
 
 ### 8.3 分段策略
 
@@ -448,6 +495,10 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 SUMMARY_DAILY_LIMIT_PER_IP=5
 SUMMARY_MAX_DURATION_SECONDS=2400
 SUMMARY_TASK_TTL_SECONDS=1800
+# 可选：B 站登录态 Cookie，解锁 AI 生成字幕 / AI 翻译字幕 / 部分 UP 上传字幕
+BILIBILI_SESSDATA=
+BILIBILI_BILI_JCT=
+BILIBILI_BUVID3=
 ```
 
 `config.py` 中增加默认值：

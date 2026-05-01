@@ -9,21 +9,37 @@ from urllib.request import Request, urlopen
 import yt_dlp
 
 from ..downloader import DownloadError, validate_url
+from .bilibili_auth import (
+    build_subtitle_request_headers,
+    get_cookie_bundle,
+    is_bilibili_url,
+    safe_unlink,
+    write_netscape_cookie_file,
+)
 from .models import SubtitleSegment, SummaryError
 from .settings import SUMMARY_MAX_DURATION_SECONDS
 
 
-LANGUAGE_PRIORITY = ("zh-Hans", "zh-CN", "zh", "zh-Hant", "en")
+# 中文优先：zh-Hans / zh-CN / zh / ai-zh（B 站 AI 生成中文字幕）
+# 英文兜底：en / ai-en（B 站 AI 翻译英文字幕）
+LANGUAGE_PRIORITY = ("zh-Hans", "zh-CN", "zh", "ai-zh", "zh-Hant", "en", "ai-en")
 FORMAT_PRIORITY = ("json3", "json", "vtt", "srt")
 USER_AGENT = "Mozilla/5.0 (compatible; FreeVideoDownload/1.0)"
+
+# yt-dlp 的 BiliBili 提取器会无条件给 subtitles 字典塞一个 "danmaku" 语种，
+# 它指向弹幕 XML，不是真正的字幕，必须过滤掉，否则匿名抓 B 站时会被误选中、
+# 解析得到 0 段字幕，把 "需要登录" 的真实原因掩盖成笼统的 "字幕内容为空"。
+EXCLUDED_LANGUAGES = {"danmaku", "live_chat"}
 
 
 @dataclass
 class SubtitleTrack:
     language: str
-    url: str
     ext: str
     source: str
+    # 两种来源二选一：远端字幕 URL，或 yt-dlp 已经 inline 好的字幕字符串（B 站走这条）
+    url: str | None = None
+    data: str | None = None
 
 
 @dataclass
@@ -71,7 +87,11 @@ def _pick_track_from_bucket(bucket: dict, source: str) -> SubtitleTrack | None:
     if not bucket:
         return None
 
-    available = {str(language): tracks for language, tracks in bucket.items() if tracks}
+    available = {
+        str(language): tracks
+        for language, tracks in bucket.items()
+        if tracks and str(language).lower() not in EXCLUDED_LANGUAGES
+    }
     if not available:
         return None
 
@@ -93,10 +113,20 @@ def _pick_track_from_bucket(bucket: dict, source: str) -> SubtitleTrack | None:
     for language in ordered_languages:
         tracks = sorted(available[language], key=_track_sort_key)
         for track in tracks:
-            url = track.get("url")
+            url = track.get("url") or None
+            data = track.get("data")
             ext = (track.get("ext") or "").lower()
-            if url and ext:
-                return SubtitleTrack(language=language, url=url, ext=ext, source=source)
+            if not ext:
+                continue
+            # B 站走 yt-dlp 时字幕已经 inline 在 data；YouTube 等仍是远端 url。
+            if data or url:
+                return SubtitleTrack(
+                    language=language,
+                    ext=ext,
+                    source=source,
+                    url=url,
+                    data=data if isinstance(data, str) else None,
+                )
     return None
 
 
@@ -108,7 +138,8 @@ def _select_subtitle_track(info: dict) -> SubtitleTrack | None:
 
 
 def _download_text(url: str) -> str:
-    request = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "*/*"})
+    headers = build_subtitle_request_headers(url)
+    request = Request(url, headers=headers)
     with urlopen(request, timeout=20) as response:
         return response.read().decode("utf-8", errors="replace")
 
@@ -246,20 +277,35 @@ def _aggregate_cues(cues: list[tuple[float, float, str]]) -> list[SubtitleSegmen
     return segments
 
 
-def _extract_info(url: str) -> dict:
-    with yt_dlp.YoutubeDL(
-        {
-            "quiet": True,
-            "no_warnings": True,
-            "skip_download": True,
-            "noplaylist": True,
-            "ignoreerrors": False,
-            "writesubtitles": True,
-            "writeautomaticsub": True,
-            "subtitlesformat": "json3/vtt/srt/best",
-        }
-    ) as ydl:
+def _extract_info(url: str, cookiefile: str | None = None) -> dict:
+    opts: dict = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "noplaylist": True,
+        "ignoreerrors": False,
+        "writesubtitles": True,
+        "writeautomaticsub": True,
+        "subtitlesformat": "json3/vtt/srt/best",
+    }
+    if cookiefile:
+        opts["cookiefile"] = cookiefile
+    with yt_dlp.YoutubeDL(opts) as ydl:
         return ydl.sanitize_info(ydl.extract_info(url, download=False))
+
+
+def _bilibili_no_subtitle_message(has_cookie: bool) -> str:
+    if has_cookie:
+        return (
+            "当前 B 站视频没有可用字幕（运营方 Cookie 有效，但视频本身没有 UP 字幕 / AI 字幕）。"
+            "后续版本会加入语音转写能力。"
+        )
+    # 没配 Cookie 时给运维一个明确指引
+    return (
+        "当前 B 站视频需要登录才能读取字幕（包括 AI 自动字幕和 AI 翻译字幕），"
+        "站点未配置 B 站登录态 Cookie，AI 总结暂不可用。请运营方在 backend/.env "
+        "配置 BILIBILI_SESSDATA 后重试。"
+    )
 
 
 def extract_subtitles(url: str) -> SubtitleExtraction:
@@ -268,41 +314,65 @@ def extract_subtitles(url: str) -> SubtitleExtraction:
     except DownloadError as exc:
         raise SummaryError(str(exc)) from exc
 
-    try:
-        info = _extract_info(clean_url)
-    except Exception as exc:
-        raise SummaryError(f"字幕信息解析失败：{str(exc)[:300]}") from exc
-
-    duration = info.get("duration")
-    try:
-        duration_seconds = int(duration) if duration else None
-    except (TypeError, ValueError):
-        duration_seconds = None
-    if duration_seconds and duration_seconds > SUMMARY_MAX_DURATION_SECONDS:
-        raise SummaryError("当前免费版仅支持总结 40 分钟以内的视频。")
-
-    track = _select_subtitle_track(info)
-    if not track:
-        raise SummaryError("当前视频没有可用字幕，AI 总结暂不支持。后续版本会加入语音转写能力。")
+    is_bili = is_bilibili_url(clean_url)
+    bundle = get_cookie_bundle() if is_bili else None
+    cookiefile: str | None = None
+    if is_bili and bundle and bundle.has_login:
+        try:
+            cookiefile = write_netscape_cookie_file(bundle)
+        except Exception:
+            # 写 Cookie 文件失败不致命，降级为匿名抓取，让下面的逻辑给出明确错误
+            cookiefile = None
 
     try:
-        content = _download_text(track.url)
-        cues = _parse_subtitle_content(content, track.ext)
-    except Exception as exc:
-        raise SummaryError(f"字幕下载或解析失败：{str(exc)[:300]}") from exc
+        try:
+            info = _extract_info(clean_url, cookiefile=cookiefile)
+        except Exception as exc:
+            raise SummaryError(f"字幕信息解析失败：{str(exc)[:300]}") from exc
 
-    segments = _aggregate_cues(cues)
-    if not segments:
-        raise SummaryError("字幕内容为空，AI 总结暂不支持。")
+        duration = info.get("duration")
+        try:
+            duration_seconds = int(duration) if duration else None
+        except (TypeError, ValueError):
+            duration_seconds = None
+        if duration_seconds and duration_seconds > SUMMARY_MAX_DURATION_SECONDS:
+            raise SummaryError("当前免费版仅支持总结 40 分钟以内的视频。")
 
-    extractor = (info.get("extractor_key") or info.get("extractor") or "").strip()
-    return SubtitleExtraction(
-        title=info.get("title"),
-        platform=extractor or None,
-        duration=duration_seconds,
-        language=track.language,
-        segments=segments,
-    )
+        track = _select_subtitle_track(info)
+        if not track:
+            if is_bili:
+                raise SummaryError(_bilibili_no_subtitle_message(bool(bundle and bundle.has_login)))
+            raise SummaryError(
+                "当前视频没有可用字幕，AI 总结暂不支持。后续版本会加入语音转写能力。"
+            )
+
+        try:
+            if track.data is not None:
+                content = track.data
+            elif track.url:
+                content = _download_text(track.url)
+            else:
+                raise SummaryError("字幕轨道既没有内容也没有下载链接，AI 总结暂不支持。")
+            cues = _parse_subtitle_content(content, track.ext)
+        except SummaryError:
+            raise
+        except Exception as exc:
+            raise SummaryError(f"字幕下载或解析失败：{str(exc)[:300]}") from exc
+
+        segments = _aggregate_cues(cues)
+        if not segments:
+            raise SummaryError("字幕内容为空，AI 总结暂不支持。")
+
+        extractor = (info.get("extractor_key") or info.get("extractor") or "").strip()
+        return SubtitleExtraction(
+            title=info.get("title"),
+            platform=extractor or None,
+            duration=duration_seconds,
+            language=track.language,
+            segments=segments,
+        )
+    finally:
+        safe_unlink(cookiefile)
 
 
 def segments_to_transcript(segments: list[SubtitleSegment]) -> str:

@@ -49,6 +49,23 @@ DEEPSEEK_API_KEY=sk-...
 
 默认使用 `deepseek-v4-flash`，通过 OpenAI Chat Completions 兼容接口调用 DeepSeek。MVP 仅使用平台原生字幕，无字幕视频会提示暂不支持。
 
+#### B 站字幕（AI 生成 / AI 翻译 / 部分 UP 上传）
+
+B 站把字幕分为「UP 上传」「AI 自动生成」「AI 翻译」三类，绝大多数情况下需要登录态才能读取（接口会返回 `need_login_subtitle: true`）。如果运营方希望支持 B 站 AI 总结，可在 `backend/.env` 中配置共享小号的 SESSDATA：
+
+```bash
+BILIBILI_SESSDATA=你的SESSDATA
+# 可选：写入这两个能进一步降低风控概率
+BILIBILI_BILI_JCT=你的bili_jct
+BILIBILI_BUVID3=你的buvid3
+```
+
+注意事项：
+
+- SESSDATA 一般 1-3 个月失效，需要运营方手动更新；
+- 后端只把 Cookie 用于 B 站 / hdslb.com 域，绝不会带给第三方平台；
+- 不配置 Cookie 时，B 站需登录字幕的视频会返回明确提示「站点未配置 B 站登录态 Cookie」，不影响 YouTube 等其他平台。
+
 ### 前端
 
 ```bash

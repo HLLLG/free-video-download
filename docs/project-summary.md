@@ -1,6 +1,6 @@
 # 项目总结：Free Video Download
 
-> 沉淀版本：MVP 视频下载 + AI 视频总结 + 思维导图全屏/下载 + 字幕下载
+> 沉淀版本：MVP 视频下载 + AI 视频总结 + 思维导图全屏/下载 + 字幕下载 + B 站登录态字幕
 > 最近更新：2026-05-01
 
 ## 1. 项目定位
@@ -103,6 +103,7 @@ backend/
 │   ├── tasks.py        任务字典、信号量、取消、TTL 清理
 │   ├── summary/        AI 总结模块
 │   │   ├── api.py          路由：summary / chat / subtitle / delete
+│   │   ├── bilibili_auth.py B 站登录态 Cookie：写 Netscape cookies.txt、Referer / UA 注入
 │   │   ├── subtitles.py    字幕抽取、语言优先级、清洗、分段
 │   │   ├── export.py       SubtitleSegment → SRT / VTT / TXT 导出与文件名清洗
 │   │   ├── llm_client.py   DeepSeek OpenAI-compatible 调用
@@ -146,6 +147,9 @@ docs/
 | `SUMMARY_DAILY_LIMIT_PER_IP` | `5` | 每 IP 每日 AI 总结次数 |
 | `SUMMARY_MAX_DURATION_SECONDS` | `40 * 60` | 免费 AI 总结单视频最长 40 分钟 |
 | `SUMMARY_TASK_TTL_SECONDS` | `30 * 60` | AI 总结任务和结果保留时间 |
+| `BILIBILI_SESSDATA` | 空 | B 站登录态 Cookie，解锁 AI 字幕 / AI 翻译 / 部分 UP 上传字幕；不配置时只能拿无需登录的 B 站字幕 |
+| `BILIBILI_BILI_JCT` | 空 | B 站可选 CSRF Cookie，与 SESSDATA 配套使用，降低风控概率 |
+| `BILIBILI_BUVID3` | 空 | B 站可选设备 Cookie，与 SESSDATA 配套使用 |
 
 ## 6. 接口速查
 
@@ -175,14 +179,15 @@ docs/
 - **字幕编码与格式差异**：YouTube、Bilibili 字幕可能是 `json3`、`json`、`vtt`、`srt` 等格式，`summary/subtitles.py` 做了多格式解析和简单去重聚合。
 - **无效 URL 创建错误任务**：曾出现 `POST /api/summary` 对无效 URL 返回 200 并创建后台任务的问题，已改为创建任务前同步校验 URL，错误直接返回 400。
 - **Markmap `NotSupportedError`**：`markmap-autoloader@0.18` 默认生成 `width="100%" height="100%"` 的 SVG，d3 在初次 `getBBox()` 时会抛 `Failed to read the 'value' property from 'SVGLength': Could not resolve relative length`，且每次切 Tab 都会重渲染加重问题。改为直接调用 `markmap-lib` + `markmap-view` 的 IIFE 包，按容器实际宽高显式设置 `<svg width/height>` 后稳定渲染；销毁旧实例避免 SVG 节点叠加。
-- **Bilibili 字幕**：B 站把字幕分为 "UP 主上传字幕（无需登录）/ AI 自动生成字幕（强制登录）/ AI 翻译字幕（强制登录）" 三类。本项目优先抓取 "UP 主上传字幕"，对那两类需要登录的字幕**没有在 MVP 中实现 Cookie 登录态**。原因：让用户在公网站点把自己 B 站登录态交给我们等于把账号借走，安全/合规风险都很高；这条能力规划放在 "本地浏览器扩展" 形态里实现，扩展可直接读取用户当前域下的登录态，不会泄露给第三方。
+- **Bilibili 字幕**：B 站把字幕分为 "UP 主上传字幕 / AI 自动生成字幕 / AI 翻译字幕" 三类，绝大多数情况下三类都需要登录态（`/x/player/v2` 返回 `need_login_subtitle: true`）。当前版本通过 `backend/.env` 接受运营方 **共享小号** 的 `BILIBILI_SESSDATA`、`BILIBILI_BILI_JCT`、`BILIBILI_BUVID3`，由 `backend/app/summary/bilibili_auth.py` 包装成 yt-dlp 能吃的 Netscape `cookies.txt` 临时文件并只对 B 站 URL 生效，其他平台不串味。语言优先级补了 `ai-zh` / `ai-en` 覆盖 AI 字幕；同时过滤掉 yt-dlp 给 B 站塞的合成 `danmaku` 语种，避免它被当成真字幕导致 "字幕内容为空" 掩盖真因。Cookie 缺失时返回明确文案 "站点未配置 B 站登录态 Cookie"，不会回归到 YouTube 等其他平台。**未来仍计划用浏览器扩展形态复用用户自己的登录态，避免共享小号被风控**。
+- **Bilibili 弹幕被 yt-dlp 当字幕**：yt-dlp 的 `BiliBili` 提取器会无条件在 `subtitles` 字典加一个 `danmaku` 语种，指向 `comment.bilibili.com/{cid}.xml` 弹幕文件。匿名抓 B 站时，`_select_subtitle_track` 会把它当成 "唯一可用字幕" 选中，结果用 VTT/SRT 解析器解出 0 段。`subtitles.py` 增加 `EXCLUDED_LANGUAGES = {"danmaku", "live_chat"}` 在选轨阶段过滤掉。
 
 ## 8. 已知限制
 
 - 任务状态、进度仅存内存，进程重启后丢失；适合单机 MVP，不适合多副本部署。
 - AI 总结结果和对话也仅存内存，默认 30 分钟后清理，暂不支持历史记录。
 - AI 总结 MVP 只使用平台原生字幕，不做 ASR；无字幕视频会提示暂不支持。
-- B 站只能抓 "UP 主上传字幕"。"AI 自动生成 / AI 翻译字幕" 必须登录态，公网站点不便引导用户提交 Cookie，规划走浏览器扩展形态解决。
+- B 站字幕必须在 `backend/.env` 配置运营方共享小号的 `BILIBILI_SESSDATA` 才能解锁；Cookie 由所有用户共用，号被风控大家都受影响，且通常 1-3 个月需手动续期。后续仍计划走浏览器扩展形态复用用户自己的登录态。
 - DeepSeek 调用会把字幕内容发送给第三方模型服务，生产环境需要在页面和服务条款中明确提示。
 - 暂未支持用户上传 cookies，因此部分需要登录态、会员或地区限制的视频可能解析失败或仅能拿到低画质。
 - 不绕过 DRM，不缓存用户视频，所有产物默认在 30 分钟后清理。
