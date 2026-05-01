@@ -657,8 +657,8 @@ SUMMARY_USAGE = {
 
 思维导图 Tab：
 
-- 使用 `markmap-autoloader@0.18.12` 渲染 `mindmap_markdown`。
-- CDN 加载失败时降级为树形文本，避免影响要点、字幕和对话 Tab。
+- 使用 `markmap-lib` + `markmap-view`（IIFE）渲染 `mindmap_markdown`；CDN 加载失败时降级为树形文本，避免影响要点、字幕和对话 Tab。
+- PNG 导出：克隆 SVG，将 Markmap 使用的 `<foreignObject>` 改写为原生 `<text>` 后再绘制到 canvas，避免 Chrome 将 canvas 标记为 tainted 导致 `toBlob('image/png')` 返回空、用户侧表现为「点了没反应」；SVG 源使用 base64 data URI 喂给 `Image`，并保留未改写路径作为兜底重试。
 
 对话 Tab：
 

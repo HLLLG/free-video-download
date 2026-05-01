@@ -54,6 +54,20 @@ function formatCount(value) {
   return String(number);
 }
 
+function normalizeVideoUrl(rawUrl) {
+  const value = rawUrl.trim();
+  if (!value) return value;
+  try {
+    const url = new URL(value);
+    if (url.hostname.toLowerCase() === "bilibili.com") {
+      url.hostname = "www.bilibili.com";
+    }
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
 function showStatus(message, type = "info") {
   els.statusBox.textContent = message;
   els.statusBox.classList.remove("hidden", "error");
@@ -233,11 +247,12 @@ function stopPolling() {
 }
 
 async function parseVideo() {
-  const url = els.url.value.trim();
+  const url = normalizeVideoUrl(els.url.value);
   if (!url) {
     showStatus("请先粘贴视频链接。", "error");
     return;
   }
+  els.url.value = url;
 
   stopPolling();
   state.currentTaskId = null;
@@ -263,7 +278,7 @@ async function parseVideo() {
 }
 
 async function startDownload() {
-  const url = els.url.value.trim();
+  const url = state.info?.webpage_url || normalizeVideoUrl(els.url.value);
   if (!url || !state.info) {
     showStatus("请先解析视频链接。", "error");
     return;
@@ -362,4 +377,5 @@ initSummaryFeature(state, {
   requestJson,
   showStatus,
   refreshIcons,
+  normalizeVideoUrl,
 });

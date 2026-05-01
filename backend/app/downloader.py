@@ -2,7 +2,7 @@ import asyncio
 import re
 import uuid
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 import yt_dlp
 
@@ -93,6 +93,15 @@ class DownloadCancelled(Exception):
     """用户在下载过程中主动取消时抛出，用来中止 yt-dlp。"""
 
 
+def _normalize_bilibili_url(url: str) -> str:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if host != "bilibili.com":
+        return url
+
+    return urlunparse(parsed._replace(netloc=f"www.{parsed.netloc}"))
+
+
 def validate_url(url: str) -> str:
     clean = url.strip()
     if not clean:
@@ -102,7 +111,7 @@ def validate_url(url: str) -> str:
     parsed = urlparse(clean)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise DownloadError("请输入有效的视频链接")
-    return clean
+    return _normalize_bilibili_url(clean)
 
 
 def _safe_error(error: Exception) -> str:
@@ -700,6 +709,7 @@ def _download_douyin_sync(task: DownloadTask, url: str, quality: str) -> None:
 
 
 def _download_sync(task: DownloadTask, url: str, quality: str) -> None:
+    url = validate_url(url)
     if douyin_extractor.is_douyin_url(url):
         _download_douyin_sync(task, url, quality)
         return

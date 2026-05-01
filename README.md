@@ -84,7 +84,7 @@ npm install
 npm run build
 ```
 
-前端构建产物会输出到 `frontend/dist`，后端启动时会自动挂载静态页面。
+前端构建产物会输出到 `frontend/dist`，后端启动时会自动挂载静态页面。修改 `frontend/src` 后请重新执行 `npm run build`，否则仅跑后端时浏览器仍可能加载旧的打包文件。
 
 ## 文档
 

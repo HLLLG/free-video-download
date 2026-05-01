@@ -236,7 +236,45 @@ function findCurrentMindmapSvg() {
   return document.querySelector(".mindmap-visual .markmap-svg");
 }
 
-function inlineSvgStyles(originalSvg) {
+// 把 markmap 用 foreignObject + <div> 排出来的文字，改写成原生 SVG <text> 节点。
+// 原因：Chrome 对含 foreignObject 的 SVG 鉴权更严，drawImage 后 canvas 会被
+// 标记为 tainted，toBlob 直接返回 null；下载 PNG 因此静默失败。
+function rasterizeForeignObjectsToText(svgEl) {
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const fos = Array.from(svgEl.querySelectorAll("foreignObject"));
+  for (const fo of fos) {
+    const x = parseFloat(fo.getAttribute("x") || "0") || 0;
+    const y = parseFloat(fo.getAttribute("y") || "0") || 0;
+    const w = parseFloat(fo.getAttribute("width") || "0") || 0;
+    const h = parseFloat(fo.getAttribute("height") || "0") || 0;
+    // markmap 里 div 可能含多个文本节点（粗体 / 链接），这里粗暴拼接成一行
+    const text = (fo.textContent || "").replace(/\s+/g, " ").trim();
+    if (!text) {
+      fo.remove();
+      continue;
+    }
+    const fontSize = Math.max(11, Math.min(20, h ? h * 0.6 : 14));
+    const baselineY = h ? y + h * 0.72 : y + fontSize;
+
+    const textEl = document.createElementNS(SVG_NS, "text");
+    textEl.setAttribute("x", String(x + 4));
+    textEl.setAttribute("y", String(baselineY));
+    if (w) textEl.setAttribute("textLength", String(Math.max(1, w - 8)));
+    textEl.setAttribute("lengthAdjust", "spacingAndGlyphs");
+    textEl.setAttribute(
+      "font-family",
+      'Inter, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif',
+    );
+    textEl.setAttribute("font-size", String(fontSize));
+    textEl.setAttribute("fill", "#172033");
+    textEl.setAttribute("dominant-baseline", "alphabetic");
+    textEl.textContent = text;
+
+    fo.parentNode.replaceChild(textEl, fo);
+  }
+}
+
+function inlineSvgStyles(originalSvg, { rasterizeForeign = false } = {}) {
   const clone = originalSvg.cloneNode(true);
   if (!clone.getAttribute("xmlns")) clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   if (!clone.getAttribute("xmlns:xlink")) clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
@@ -247,6 +285,10 @@ function inlineSvgStyles(originalSvg) {
   if (!clone.getAttribute("viewBox")) clone.setAttribute("viewBox", `0 0 ${width} ${height}`);
   clone.setAttribute("width", String(width));
   clone.setAttribute("height", String(height));
+
+  if (rasterizeForeign) {
+    rasterizeForeignObjectsToText(clone);
+  }
 
   const styleEl = document.createElementNS("http://www.w3.org/2000/svg", "style");
   styleEl.textContent = `
@@ -283,41 +325,71 @@ function downloadMindmapAsSvg() {
   triggerDownload(blob, `${getMindmapTitle()}-思维导图.svg`);
 }
 
-function downloadMindmapAsPng() {
+// 把字符串 SVG 转成 base64 data URI，避免 Chrome 对 blob:// 的 SVG 设防。
+function svgToDataUri(xml) {
+  // 先 encodeURIComponent 处理中文等多字节字符，再用 unescape 还原成字节流给 btoa
+  const utf8Bytes = unescape(encodeURIComponent(xml));
+  return `data:image/svg+xml;base64,${btoa(utf8Bytes)}`;
+}
+
+function rasterSvgToPngBlob(xml, width, height) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      try {
+        const scale = Math.max(2, window.devicePixelRatio || 1);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(width * scale));
+        canvas.height = Math.max(1, Math.round(height * scale));
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error("canvas.toBlob 返回 null（canvas 可能被 tainted）"));
+            return;
+          }
+          resolve(blob);
+        }, "image/png");
+      } catch (err) {
+        reject(err);
+      }
+    };
+    image.onerror = (event) => {
+      reject(new Error("SVG 图像加载失败：" + (event?.message || "image onerror")));
+    };
+    image.src = svgToDataUri(xml);
+  });
+}
+
+async function downloadMindmapAsPng() {
   const svg = findCurrentMindmapSvg();
   if (!svg) {
     showSummaryStatus("思维导图还没渲染完成，请稍后再试", "error");
     return;
   }
-  const { clone, width, height } = inlineSvgStyles(svg);
-  const xml = svgToString(clone);
-  const svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
-  const image = new Image();
-  image.crossOrigin = "anonymous";
-  image.onload = () => {
-    const scale = Math.max(2, window.devicePixelRatio || 1);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(width * scale));
-    canvas.height = Math.max(1, Math.round(height * scale));
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-    URL.revokeObjectURL(url);
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        showSummaryStatus("PNG 导出失败，请改用 SVG 下载", "error");
-        return;
-      }
-      triggerDownload(blob, `${getMindmapTitle()}-思维导图.png`);
-    }, "image/png");
-  };
-  image.onerror = () => {
-    URL.revokeObjectURL(url);
+
+  // 主路径：把 foreignObject 改写成原生 SVG <text>，规避 Chrome 把 canvas
+  // 标记为 tainted 导致 toBlob 静默返回 null 的问题。
+  const primary = inlineSvgStyles(svg, { rasterizeForeign: true });
+  try {
+    const blob = await rasterSvgToPngBlob(svgToString(primary.clone), primary.width, primary.height);
+    triggerDownload(blob, `${getMindmapTitle()}-思维导图.png`);
+    return;
+  } catch (err) {
+    console.warn("[mindmap] PNG 主路径失败，尝试保留 foreignObject 重试", err);
+  }
+
+  // 兜底路径：保留 foreignObject 原样再试一次，万一某些环境其实没问题
+  const fallback = inlineSvgStyles(svg, { rasterizeForeign: false });
+  try {
+    const blob = await rasterSvgToPngBlob(svgToString(fallback.clone), fallback.width, fallback.height);
+    triggerDownload(blob, `${getMindmapTitle()}-思维导图.png`);
+  } catch (err) {
+    console.error("[mindmap] PNG 兜底路径也失败", err);
     showSummaryStatus("PNG 导出失败，请改用 SVG 下载", "error");
-  };
-  image.src = url;
+  }
 }
 
 function showSummaryStatus(message, type) {
@@ -560,7 +632,7 @@ function pollSummary(elements, taskId) {
 }
 
 async function startSummary(elements, appState) {
-  const url = elements.url.value.trim();
+  const url = elements.normalizeVideoUrl(elements.url.value);
   if (!url || !appState.info) {
     elements.showStatus("请先解析视频链接。", "error");
     return;
@@ -604,6 +676,7 @@ export function initSummaryFeature(appState, helpers) {
   const elements = {
     url: $("#videoUrl"),
     button: $("#summaryBtn"),
+    normalizeVideoUrl: helpers.normalizeVideoUrl || ((value) => value.trim()),
     card: $("#summaryCard"),
     title: $("#summaryTitle"),
     pct: $("#summaryPct"),
