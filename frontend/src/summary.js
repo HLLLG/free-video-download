@@ -6,9 +6,15 @@ const summaryState = {
   result: null,
   activeTab: "outline",
   sendingChat: false,
+  mindmapFullscreen: false,
 };
-const MARKMAP_AUTOLOADER_URL = "https://cdn.jsdelivr.net/npm/markmap-autoloader@0.18.12";
+const MARKMAP_DEPS = [
+  "https://cdn.jsdelivr.net/npm/d3@7.9.0",
+  "https://cdn.jsdelivr.net/npm/markmap-lib@0.18.12/dist/browser/index.iife.min.js",
+  "https://cdn.jsdelivr.net/npm/markmap-view@0.18.12/dist/browser/index.min.js",
+];
 let markmapLoaderPromise = null;
+let mindmapEscBound = false;
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -110,10 +116,23 @@ function renderMindmap(markdown) {
     .filter(Boolean);
   if (!lines.length) return "<p>暂无思维导图内容。</p>";
   return `
+    <div class="mindmap-toolbar">
+      <button class="ghost-btn small" type="button" data-mindmap-action="fullscreen">
+        <i data-lucide="maximize-2"></i><span>全屏查看</span>
+      </button>
+      <span class="mindmap-toolbar-divider"></span>
+      <button class="ghost-btn small" type="button" data-mindmap-action="download-png">
+        <i data-lucide="image-down"></i><span>下载 PNG</span>
+      </button>
+      <button class="ghost-btn small" type="button" data-mindmap-action="download-svg">
+        <i data-lucide="file-down"></i><span>下载 SVG</span>
+      </button>
+      <button class="ghost-btn small" type="button" data-mindmap-action="download-md">
+        <i data-lucide="file-text"></i><span>下载 Markdown</span>
+      </button>
+    </div>
     <div class="mindmap-visual">
-      <div class="markmap">
-        <script type="text/template">${escapeScriptContent(markdown)}</script>
-      </div>
+      <svg class="markmap-svg" data-markmap-source="${encodeURIComponent(markdown)}"></svg>
     </div>
     <div class="mindmap-fallback">
       ${renderMindmapFallback(lines)}
@@ -121,22 +140,257 @@ function renderMindmap(markdown) {
   `;
 }
 
-function scheduleMindmapRender() {
-  if (summaryState.activeTab !== "mindmap") return;
-  const visual = document.querySelector(".mindmap-visual");
-  if (!visual) return;
-  markmapLoaderPromise ||= loadScript(MARKMAP_AUTOLOADER_URL);
-  markmapLoaderPromise
-    .then(() => {
-      const loader = window.markmap?.autoLoader;
-      if (loader && typeof loader.renderAll === "function") {
-        loader.renderAll();
-        visual.classList.add("loaded");
+async function ensureMarkmapLoaded() {
+  if (!markmapLoaderPromise) {
+    markmapLoaderPromise = MARKMAP_DEPS.reduce(
+      (chain, url) => chain.then(() => loadScript(url)),
+      Promise.resolve(),
+    );
+  }
+  await markmapLoaderPromise;
+  return window.markmap;
+}
+
+function scheduleMindmapRender(container) {
+  const root = container || document;
+  const svgEl = root.querySelector(".markmap-svg");
+  const visual = root.querySelector(".mindmap-visual");
+  if (!svgEl || !visual) return;
+  const source = decodeURIComponent(svgEl.dataset.markmapSource || "");
+  if (!source) return;
+
+  ensureMarkmapLoaded()
+    .then((mm) => {
+      if (!mm || !mm.Transformer || !mm.Markmap) return;
+
+      // 给 SVG 一个明确的像素尺寸，避免 d3 在 % 单位上 getBBox 报错
+      const rect = visual.getBoundingClientRect();
+      const width = Math.max(320, Math.round(rect.width || visual.clientWidth || 800));
+      const height = Math.max(320, Math.round(rect.height || visual.clientHeight || 520));
+      svgEl.setAttribute("width", String(width));
+      svgEl.setAttribute("height", String(height));
+      svgEl.style.width = `${width}px`;
+      svgEl.style.height = `${height}px`;
+
+      const transformer = new mm.Transformer();
+      const { root: rootData } = transformer.transform(source);
+      // 复用同一个 SVG 节点，避免 reflow
+      if (svgEl.__markmapInstance) {
+        try {
+          svgEl.__markmapInstance.destroy();
+        } catch (_) {
+          /* ignore */
+        }
       }
+      const instance = mm.Markmap.create(svgEl, undefined, rootData);
+      svgEl.__markmapInstance = instance;
+      visual.classList.add("loaded");
+      // markmap 默认是 "fit"，再触发一次确保自适应
+      requestAnimationFrame(() => {
+        try {
+          instance.fit();
+        } catch (_) {
+          /* ignore */
+        }
+      });
     })
-    .catch(() => {
+    .catch((error) => {
+      console.warn("[mindmap] markmap render failed", error);
       visual.classList.remove("loaded");
     });
+}
+
+function bindMindmapToolbar(container) {
+  const root = container || document;
+  root.querySelectorAll("[data-mindmap-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const action = button.dataset.mindmapAction;
+      if (action === "fullscreen") openMindmapFullscreen();
+      else if (action === "download-png") downloadMindmapAsPng();
+      else if (action === "download-svg") downloadMindmapAsSvg();
+      else if (action === "download-md") downloadMindmapAsMarkdown();
+    });
+  });
+}
+
+function getMindmapTitle() {
+  const title = summaryState.result?.title || "思维导图";
+  const safe = String(title).replace(/[\\/:*?"<>|\r\n\t]+/g, " ").trim() || "思维导图";
+  return safe.length > 80 ? safe.slice(0, 80) : safe;
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+function findCurrentMindmapSvg() {
+  const fullscreenSvg = document.querySelector("#mindmapFullscreen .markmap-svg");
+  if (fullscreenSvg) return fullscreenSvg;
+  return document.querySelector(".mindmap-visual .markmap-svg");
+}
+
+function inlineSvgStyles(originalSvg) {
+  const clone = originalSvg.cloneNode(true);
+  if (!clone.getAttribute("xmlns")) clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  if (!clone.getAttribute("xmlns:xlink")) clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+
+  const bbox = originalSvg.getBoundingClientRect();
+  const width = Math.max(1, Math.round(bbox.width || 1280));
+  const height = Math.max(1, Math.round(bbox.height || 720));
+  if (!clone.getAttribute("viewBox")) clone.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  clone.setAttribute("width", String(width));
+  clone.setAttribute("height", String(height));
+
+  const styleEl = document.createElementNS("http://www.w3.org/2000/svg", "style");
+  styleEl.textContent = `
+    .markmap-foreign { font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; color: #172033; }
+    .markmap-foreign div { color: #172033; }
+    .markmap-foreign a { color: #5b5bff; }
+    .markmap-link { fill: none; }
+  `;
+  clone.insertBefore(styleEl, clone.firstChild);
+
+  return { clone, width, height };
+}
+
+function svgToString(svgEl) {
+  return new XMLSerializer().serializeToString(svgEl);
+}
+
+function downloadMindmapAsMarkdown() {
+  const markdown = summaryState.result?.mindmap_markdown;
+  if (!markdown) return;
+  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+  triggerDownload(blob, `${getMindmapTitle()}-思维导图.md`);
+}
+
+function downloadMindmapAsSvg() {
+  const svg = findCurrentMindmapSvg();
+  if (!svg) {
+    showSummaryStatus("思维导图还没渲染完成，请稍后再试", "error");
+    return;
+  }
+  const { clone } = inlineSvgStyles(svg);
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n${svgToString(clone)}`;
+  const blob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+  triggerDownload(blob, `${getMindmapTitle()}-思维导图.svg`);
+}
+
+function downloadMindmapAsPng() {
+  const svg = findCurrentMindmapSvg();
+  if (!svg) {
+    showSummaryStatus("思维导图还没渲染完成，请稍后再试", "error");
+    return;
+  }
+  const { clone, width, height } = inlineSvgStyles(svg);
+  const xml = svgToString(clone);
+  const svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  image.onload = () => {
+    const scale = Math.max(2, window.devicePixelRatio || 1);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(url);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        showSummaryStatus("PNG 导出失败，请改用 SVG 下载", "error");
+        return;
+      }
+      triggerDownload(blob, `${getMindmapTitle()}-思维导图.png`);
+    }, "image/png");
+  };
+  image.onerror = () => {
+    URL.revokeObjectURL(url);
+    showSummaryStatus("PNG 导出失败，请改用 SVG 下载", "error");
+  };
+  image.src = url;
+}
+
+function showSummaryStatus(message, type) {
+  const helpers = window.__summaryHelpers;
+  if (helpers && typeof helpers.showStatus === "function") {
+    helpers.showStatus(message, type || "info");
+  }
+}
+
+function openMindmapFullscreen() {
+  if (summaryState.mindmapFullscreen) return;
+  const markdown = summaryState.result?.mindmap_markdown || "";
+  const overlay = document.createElement("div");
+  overlay.id = "mindmapFullscreen";
+  overlay.className = "mindmap-fullscreen";
+  overlay.innerHTML = `
+    <div class="mindmap-fullscreen-head">
+      <h3>${escapeHtml(summaryState.result?.title || "思维导图")} · 思维导图</h3>
+      <div class="mindmap-fullscreen-actions">
+        <button class="ghost-btn small" type="button" data-mindmap-action="download-png">
+          <i data-lucide="image-down"></i><span>PNG</span>
+        </button>
+        <button class="ghost-btn small" type="button" data-mindmap-action="download-svg">
+          <i data-lucide="file-down"></i><span>SVG</span>
+        </button>
+        <button class="ghost-btn small" type="button" data-mindmap-action="download-md">
+          <i data-lucide="file-text"></i><span>MD</span>
+        </button>
+        <button class="ghost-btn small" type="button" data-mindmap-action="close">
+          <i data-lucide="x"></i><span>关闭 (ESC)</span>
+        </button>
+      </div>
+    </div>
+    <div class="mindmap-fullscreen-body">
+      <div class="mindmap-visual">
+        <svg class="markmap-svg" data-markmap-source="${encodeURIComponent(markdown)}"></svg>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.body.classList.add("no-scroll");
+  summaryState.mindmapFullscreen = true;
+
+  overlay.querySelectorAll("[data-mindmap-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const action = button.dataset.mindmapAction;
+      if (action === "close") closeMindmapFullscreen();
+      else if (action === "download-png") downloadMindmapAsPng();
+      else if (action === "download-svg") downloadMindmapAsSvg();
+      else if (action === "download-md") downloadMindmapAsMarkdown();
+    });
+  });
+
+  if (window.lucide?.createIcons) window.lucide.createIcons();
+  scheduleMindmapRender(overlay);
+
+  if (!mindmapEscBound) {
+    document.addEventListener("keydown", handleMindmapEscape);
+    mindmapEscBound = true;
+  }
+}
+
+function closeMindmapFullscreen() {
+  const overlay = document.getElementById("mindmapFullscreen");
+  if (overlay) overlay.remove();
+  document.body.classList.remove("no-scroll");
+  summaryState.mindmapFullscreen = false;
+}
+
+function handleMindmapEscape(event) {
+  if (event.key === "Escape" && summaryState.mindmapFullscreen) {
+    closeMindmapFullscreen();
+  }
 }
 
 function stopPolling() {
@@ -176,16 +430,35 @@ function renderOutline(task) {
 function renderTranscript(task) {
   const segments = task.segments || [];
   if (!segments.length) return "<p>暂无字幕内容。</p>";
-  return `<div class="transcript-list">${segments
-    .map(
-      (segment) => `
-        <div class="transcript-item">
-          <span class="transcript-time">${escapeHtml(segment.start_text)} - ${escapeHtml(segment.end_text)}</span>
-          <p>${escapeHtml(segment.text)}</p>
-        </div>
-      `,
-    )
-    .join("")}</div>`;
+  const toolbar = summaryState.taskId
+    ? `
+      <div class="transcript-toolbar">
+        <span class="muted small">下载字幕文件：</span>
+        <a class="ghost-btn small" href="/api/summary/${encodeURIComponent(summaryState.taskId)}/subtitle?format=srt">
+          <i data-lucide="file-down"></i><span>SRT</span>
+        </a>
+        <a class="ghost-btn small" href="/api/summary/${encodeURIComponent(summaryState.taskId)}/subtitle?format=vtt">
+          <i data-lucide="file-down"></i><span>VTT</span>
+        </a>
+        <a class="ghost-btn small" href="/api/summary/${encodeURIComponent(summaryState.taskId)}/subtitle?format=txt">
+          <i data-lucide="file-text"></i><span>纯文本</span>
+        </a>
+      </div>
+    `
+    : "";
+  return `
+    ${toolbar}
+    <div class="transcript-list">${segments
+      .map(
+        (segment) => `
+          <div class="transcript-item">
+            <span class="transcript-time">${escapeHtml(segment.start_text)} - ${escapeHtml(segment.end_text)}</span>
+            <p>${escapeHtml(segment.text)}</p>
+          </div>
+        `,
+      )
+      .join("")}</div>
+  `;
 }
 
 function renderChat(task) {
@@ -218,9 +491,12 @@ function renderActiveTab(elements) {
     elements.panel.innerHTML = renderOutline(task);
   } else if (summaryState.activeTab === "transcript") {
     elements.panel.innerHTML = renderTranscript(task);
+    elements.refreshIcons?.();
   } else if (summaryState.activeTab === "mindmap") {
     elements.panel.innerHTML = renderMindmap(task.mindmap_markdown || "");
-    scheduleMindmapRender();
+    scheduleMindmapRender(elements.panel);
+    bindMindmapToolbar(elements.panel);
+    elements.refreshIcons?.();
   } else {
     elements.panel.innerHTML = renderChat(task);
     bindChatForm(elements);
@@ -340,6 +616,8 @@ export function initSummaryFeature(appState, helpers) {
   };
 
   if (!elements.button || !elements.card) return;
+
+  window.__summaryHelpers = helpers;
 
   elements.button.addEventListener("click", () => startSummary(elements, appState));
   elements.tabs.forEach((button) => {
