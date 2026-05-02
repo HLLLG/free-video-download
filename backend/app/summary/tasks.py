@@ -12,9 +12,21 @@ SUMMARY_TASKS: dict[str, SummaryTask] = {}
 SUMMARY_SEMAPHORE = asyncio.Semaphore(2)
 
 
-def create_summary_task(url: str, client_ip: str, title: str | None = None) -> SummaryTask:
+def create_summary_task(
+    url: str,
+    client_ip: str,
+    title: str | None = None,
+    *,
+    max_duration_seconds: int | None = None,
+) -> SummaryTask:
     summary_id = uuid.uuid4().hex[:16]
-    task = SummaryTask(summary_id=summary_id, url=url, client_ip=client_ip, title=title)
+    task = SummaryTask(
+        summary_id=summary_id,
+        url=url,
+        client_ip=client_ip,
+        title=title,
+        max_duration_seconds=max_duration_seconds,
+    )
     SUMMARY_TASKS[summary_id] = task
     (SUMMARY_ROOT / summary_id).mkdir(parents=True, exist_ok=True)
     return task

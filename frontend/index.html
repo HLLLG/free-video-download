@@ -63,7 +63,7 @@
       "offers": {
         "@type": "AggregateOffer",
         "lowPrice": "0",
-        "highPrice": "199",
+        "highPrice": "99",
         "priceCurrency": "CNY",
         "offerCount": "3",
         "offers": [
@@ -76,19 +76,17 @@
           },
           {
             "@type": "Offer",
-            "name": "Pro 月付",
-            "price": "29",
+            "name": "Pro 月卡",
+            "price": "9.9",
             "priceCurrency": "CNY",
-            "description": "4K/8K 超清、批量下载队列、字幕与 AI 总结",
-            "billingIncrement": "P1M"
+            "description": "4K 下载、无限 AI 总结、最长 120 分钟视频总结、30 天有效"
           },
           {
             "@type": "Offer",
-            "name": "Pro 年付",
-            "price": "199",
+            "name": "Pro 年卡",
+            "price": "99",
             "priceCurrency": "CNY",
-            "description": "省 43%、更高并发额度、优先支持新平台",
-            "billingIncrement": "P1Y"
+            "description": "4K 下载、无限 AI 总结、最长 120 分钟视频总结、365 天有效"
           }
         ]
       },
@@ -288,7 +286,11 @@
             <a href="#features">功能亮点</a>
             <a href="#pricing">价格</a>
             <a href="#faq">常见问题</a>
-            <button class="ghost-btn" type="button" data-scroll="#pricing">登录</button>
+            <button id="membershipBadge" class="membership-badge free" type="button">
+              <i data-lucide="sparkles"></i>
+              <span>Free</span>
+            </button>
+            <button class="ghost-btn" type="button" data-open-restore>恢复会员</button>
             <button class="pro-btn" type="button" data-scroll="#pricing">
               <i data-lucide="crown"></i>
               <span>升级 Pro</span>
@@ -354,6 +356,33 @@
             </div>
 
             <div id="statusBox" class="status-box hidden" role="status"></div>
+
+            <section id="membershipPanel" class="membership-panel hidden" aria-label="会员状态">
+              <div class="membership-panel-head">
+                <div>
+                  <p class="small-label">
+                    <i data-lucide="shield-check"></i>
+                    <span>会员中心</span>
+                  </p>
+                  <h3 id="membershipTitle">Pro 会员已开通</h3>
+                  <p id="membershipMeta" class="membership-meta"></p>
+                </div>
+                <div class="membership-actions">
+                  <button id="copyMembershipKeyBtn" class="ghost-btn small" type="button">
+                    <i data-lucide="copy"></i>
+                    <span>复制会员密钥</span>
+                  </button>
+                  <button class="ghost-btn small" type="button" data-open-restore>
+                    <i data-lucide="key-round"></i>
+                    <span>恢复会员</span>
+                  </button>
+                </div>
+              </div>
+              <div class="membership-key-box">
+                <span>会员密钥</span>
+                <code id="membershipKeyValue">尚未生成</code>
+              </div>
+            </section>
 
             <div id="parseGrid" class="parse-grid hidden">
               <article id="resultCard" class="result-card">
@@ -567,8 +596,8 @@
           <div class="container">
             <div class="section-title">
               <p class="eyebrow">简单价格，清晰权益</p>
-              <h2>先让核心流程跑通，再逐步接入付费</h2>
-              <p>当前版本展示付费结构，真实支付会在账号系统稳定后接入。</p>
+              <h2>直接购买 Pro，立即解锁高级能力</h2>
+              <p>使用 Stripe Checkout 支付，支付成功后会返回会员密钥。请务必保存它，后续换设备或清缓存时可用来恢复会员。</p>
             </div>
             <div class="pricing-grid">
               <article class="price-card">
@@ -577,30 +606,35 @@
                 <ul>
                   <li>单链接解析</li>
                   <li>720p / 1080p 下载</li>
-                  <li>30 分钟临时文件保留</li>
+                  <li>AI 总结按 IP 免费额度</li>
+                  <li>40 分钟以内视频总结</li>
                 </ul>
                 <button class="ghost-btn full" type="button" data-scroll="#top">开始体验</button>
               </article>
               <article class="price-card highlight">
                 <span class="recommend">推荐</span>
-                <h3>Pro 月付</h3>
-                <p class="price">¥29<span>/月</span></p>
+                <h3>Pro 月卡</h3>
+                <p class="price">¥9.9<span>/30 天</span></p>
                 <ul>
-                  <li>4K / 8K 超清</li>
-                  <li>批量下载队列</li>
-                  <li>字幕与 AI 总结</li>
+                  <li>解锁 4K 下载</li>
+                  <li>AI 总结不限次数</li>
+                  <li>最长支持 120 分钟视频总结</li>
                 </ul>
-                <button class="pro-btn full" type="button">即将开放</button>
+                <button class="pro-btn full" type="button" data-buy-plan="monthly">
+                  <span>立即购买月卡</span>
+                </button>
               </article>
               <article class="price-card">
-                <h3>Pro 年付</h3>
-                <p class="price">¥199<span>/年</span></p>
+                <h3>Pro 年卡</h3>
+                <p class="price">¥99<span>/365 天</span></p>
                 <ul>
-                  <li>省 43%</li>
-                  <li>更高并发额度</li>
-                  <li>优先支持新平台</li>
+                  <li>相比月卡更划算</li>
+                  <li>全年保持 4K 下载权限</li>
+                  <li>全年无限 AI 总结</li>
                 </ul>
-                <button class="ghost-btn full" type="button">加入候补</button>
+                <button class="ghost-btn full" type="button" data-buy-plan="yearly">
+                  <span>立即购买年卡</span>
+                </button>
               </article>
             </div>
           </div>
@@ -641,11 +675,11 @@
           </details>
           <details>
             <summary>下载的视频支持哪些清晰度和格式？</summary>
-            <p>具体可用的清晰度取决于视频原始上传的画质和平台限制。常见的选项包括 360p、480p、720p（HD）、1080p（Full HD）。部分平台的 4K/8K 超高清需要登录态，将在后续 Pro 版本中支持。下载格式通常为 MP4（H.264 编码），兼容所有主流设备和播放器。</p>
+            <p>具体可用的清晰度取决于视频原始上传的画质和平台限制。常见的选项包括 360p、480p、720p（HD）、1080p（Full HD）。如果原视频本身提供 4K 资源，开通 Pro 后即可在本站直接选择 4K 下载。下载格式通常为 MP4（H.264 编码），兼容所有主流设备和播放器。</p>
           </details>
           <details>
             <summary>免费版有什么限制？</summary>
-            <p>免费版提供完整的核心功能：单链接视频解析与下载（720p/1080p）、AI 智能总结（每日 5 次免费额度）、思维导图生成和 AI 对话追问。单次 AI 总结限制为 40 分钟以内的视频。下载文件在服务器临时保留 30 分钟后自动清理。后续 Pro 版将开放 4K 下载、批量下载队列、字幕翻译等高级功能。</p>
+            <p>免费版提供完整的核心功能：单链接视频解析与下载（720p/1080p）、AI 智能总结（按 IP 免费额度）、思维导图生成和 AI 对话追问。单次 AI 总结限制为 40 分钟以内的视频。Pro 版会解锁 4K 下载、AI 总结不限次数，以及最长 120 分钟的视频总结能力。</p>
           </details>
           <details>
             <summary>为什么有些视频解析失败？</summary>
@@ -670,9 +704,38 @@
         <div class="modal-card">
           <button id="closeModal" class="modal-close" type="button" aria-label="关闭">×</button>
           <p class="eyebrow">Pro 专享</p>
-          <h3>这个能力会在付费版开放</h3>
-          <p>当前先把核心下载流程跑通。后续可接入账号、支付、4K、批量下载、字幕翻译和 AI 总结。</p>
-          <button class="pro-btn full" type="button" data-scroll="#pricing">查看 Pro 方案</button>
+          <h3>4K 下载和超长 AI 总结已接入 Pro</h3>
+          <p>开通后可立即解锁 4K 下载、AI 总结不限次数，以及最长 120 分钟视频总结。支付成功后系统会返回会员密钥，请一定保存。</p>
+          <div class="modal-actions">
+            <button class="pro-btn full" type="button" data-buy-plan="monthly">
+              <span>购买月卡 ¥9.9</span>
+            </button>
+            <button class="ghost-btn full" type="button" data-open-restore>恢复已购会员</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="restoreModal" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-card">
+          <button id="closeRestoreModal" class="modal-close" type="button" aria-label="关闭">×</button>
+          <p class="eyebrow">恢复会员</p>
+          <h3>用邮箱和会员密钥恢复 Pro</h3>
+          <p>支付成功后，系统会返回一串会员密钥。以后换设备、清空浏览器缓存，或者想在别的浏览器继续使用时，都可以用它恢复会员。</p>
+          <form id="restoreForm" class="restore-form">
+            <label class="field-group" for="restoreEmail">
+              <span>支付邮箱</span>
+              <input id="restoreEmail" type="email" autocomplete="email" placeholder="you@example.com" />
+            </label>
+            <label class="field-group" for="restoreKey">
+              <span>会员密钥</span>
+              <input id="restoreKey" type="text" autocomplete="off" placeholder="粘贴支付成功后返回的会员密钥" />
+            </label>
+            <div id="restoreStatus" class="status-box hidden" role="status"></div>
+            <button class="primary-btn full" type="submit">
+              <i data-lucide="shield-check"></i>
+              <span>恢复会员</span>
+            </button>
+          </form>
         </div>
       </div>
 

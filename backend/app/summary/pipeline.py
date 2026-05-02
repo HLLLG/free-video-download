@@ -15,7 +15,10 @@ async def run_summary_task(task: SummaryTask) -> None:
             task.stage_text = "正在读取视频字幕..."
             task.touch()
 
-            extraction = extract_subtitles(task.url)
+            extraction = extract_subtitles(
+                task.url,
+                max_duration_seconds=task.max_duration_seconds,
+            )
             task.title = task.title or extraction.title
             task.platform = extraction.platform
             task.duration = extraction.duration

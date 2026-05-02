@@ -36,6 +36,7 @@ class SummaryTask:
     url: str
     client_ip: str
     title: str | None = None
+    max_duration_seconds: int | None = None
     platform: str | None = None
     status: SummaryStatus = "queued"
     pct: float = 0

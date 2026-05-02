@@ -12,8 +12,9 @@
 - 临时文件自动清理。
 - AI 视频总结：基于平台原生字幕生成视频总览、结构化要点和思维导图。
 - 带时间戳字幕展示和基于字幕内容的 AI 追问。
-- 免费限额：AI 总结次数由环境变量 `SUMMARY_DAILY_LIMIT_PER_IP` 控制（默认 `0` 表示不限制，便于测试；生产可设为正整数）；单视频最长 40 分钟。
-- 营销型首页、Pro 付费能力预留、移动端适配。
+- 免费限额：AI 总结次数由环境变量 `SUMMARY_DAILY_LIMIT_PER_IP` 控制（默认 `0` 表示不限制，便于测试；生产可设为正整数）；免费用户单视频总结最长默认 40 分钟。
+- **Pro 会员**：Stripe Checkout 一次性购买（月卡 / 年卡）；开通后可解锁 **4K 下载**、**不限次数 AI 总结**（仍受 IP 限额开关约束时对 Pro 放行）、**更长视频总结（默认最长 120 分钟）**。会员密钥保存在浏览器本地，可用邮箱 + 密钥在其他浏览器恢复。
+- 营销型首页、移动端适配。
 
 ## 本地开发
 
@@ -46,6 +47,18 @@ set DEEPSEEK_API_KEY=sk-...
 ```bash
 DEEPSEEK_API_KEY=sk-...
 ```
+
+启用 **Stripe 测试支付**（测试密钥与 Price ID 需在 Stripe Dashboard 创建）：
+
+```bash
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PRICE_MONTHLY=price_...
+STRIPE_PRICE_YEARLY=price_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_APP_BASE_URL=http://127.0.0.1:5173
+```
+
+本地可用 [Stripe CLI](https://docs.stripe.com/stripe-cli) 监听 webhook：`stripe listen --forward-to localhost:8001/api/stripe/webhook`，把输出的 `whsec_...` 填入 `STRIPE_WEBHOOK_SECRET`。付款页测试卡：`4242 4242 4242 4242`。
 
 默认使用 `deepseek-v4-flash`，通过 OpenAI Chat Completions 兼容接口调用 DeepSeek。MVP 仅使用平台原生字幕，无字幕视频会提示暂不支持。
 

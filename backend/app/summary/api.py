@@ -11,8 +11,7 @@ from .bilibili_auth import check_cookie_login
 from .export import SUPPORTED_FORMATS, media_type_for, render_subtitle, safe_filename
 from .models import SummaryError
 from .pipeline import chat_with_summary, run_summary_task
-from .rate_limit import assert_daily_limit, get_client_ip, increment_usage
-from .settings import SUMMARY_MAX_DURATION_SECONDS
+from .rate_limit import assert_daily_limit, get_summary_access_context, increment_usage
 from .tasks import create_summary_task, get_summary_task, remove_summary_task
 
 
@@ -42,21 +41,65 @@ def _summary_http_error(exc: SummaryError) -> HTTPException:
 
 @router.post("")
 async def create_summary(payload: SummaryRequest, request: Request) -> dict:
-    client_ip = get_client_ip(request)
+    access = await get_summary_access_context(request)
     try:
-        assert_daily_limit(client_ip)
+        assert_daily_limit(access)
         try:
             validate_url(payload.url)
         except DownloadError as exc:
             raise SummaryError(str(exc)) from exc
-        if payload.duration and payload.duration > SUMMARY_MAX_DURATION_SECONDS:
-            raise SummaryError("当前免费版仅支持总结 40 分钟以内的视频。")
-        task = create_summary_task(payload.url, client_ip, payload.title)
-        increment_usage(client_ip)
+        if payload.duration and payload.duration > access.max_duration_seconds:
+            limit_minutes = access.max_duration_seconds // 60
+            if access.is_pro:
+                raise SummaryError(f"当前 Pro 版仅支持总结 {limit_minutes} 分钟以内的视频。")
+            raise SummaryError(
+                f"当前免费版仅支持总结 {limit_minutes} 分钟以内的视频，请升级 Pro 后再试。"
+            )
+        task = create_summary_task(
+            payload.url,
+            access.client_ip,
+            payload.title,
+            max_duration_seconds=access.max_duration_seconds,
+        )
+        increment_usage(access)
         asyncio.create_task(run_summary_task(task))
         return {"summary_id": task.summary_id, "status": task.status}
     except SummaryError as exc:
         raise _summary_http_error(exc) from exc
+
+
+@router.get("/bilibili/cookie-status")
+async def bilibili_cookie_status() -> dict:
+    """运营方自检：当前 .env 配置的 BILIBILI_SESSDATA 在 B 站是否仍被识别为登录态。
+
+    返回脱敏后的登录信息（uname / mid），不暴露 Cookie 原文。
+    用法： curl http://127.0.0.1:8001/api/summary/bilibili/cookie-status
+    """
+    status = check_cookie_login()
+    if not status.has_cookie:
+        return {
+            "has_cookie": False,
+            "is_login": False,
+            "hint": "未在 backend/.env 配置 BILIBILI_SESSDATA。如需总结 B 站视频请添加该配置。",
+        }
+    if status.is_login:
+        return {
+            "has_cookie": True,
+            "is_login": True,
+            "uname": status.uname,
+            "mid": status.mid,
+            "hint": f"Cookie 当前有效，登录身份：{status.uname or '未知'}（mid={status.mid}）。",
+        }
+    return {
+        "has_cookie": True,
+        "is_login": False,
+        "code": status.code,
+        "message": status.message,
+        "hint": (
+            "Cookie 已被 B 站拒绝（可能被风控吊销或填写错误）。"
+            "请重新登录小号，复制最新 SESSDATA 到 backend/.env 后重启服务。"
+        ),
+    }
 
 
 @router.get("/{summary_id}")
@@ -117,38 +160,4 @@ async def delete_summary(summary_id: str) -> dict:
     if not task:
         raise HTTPException(status_code=404, detail="总结任务不存在或已过期")
     return {"ok": True}
-
-
-@router.get("/bilibili/cookie-status")
-async def bilibili_cookie_status() -> dict:
-    """运营方自检：当前 .env 配置的 BILIBILI_SESSDATA 在 B 站是否仍被识别为登录态。
-
-    返回脱敏后的登录信息（uname / mid），不暴露 Cookie 原文。
-    用法： curl http://127.0.0.1:8001/api/summary/bilibili/cookie-status
-    """
-    status = check_cookie_login()
-    if not status.has_cookie:
-        return {
-            "has_cookie": False,
-            "is_login": False,
-            "hint": "未在 backend/.env 配置 BILIBILI_SESSDATA。如需总结 B 站视频请添加该配置。",
-        }
-    if status.is_login:
-        return {
-            "has_cookie": True,
-            "is_login": True,
-            "uname": status.uname,
-            "mid": status.mid,
-            "hint": f"Cookie 当前有效，登录身份：{status.uname or '未知'}（mid={status.mid}）。",
-        }
-    return {
-        "has_cookie": True,
-        "is_login": False,
-        "code": status.code,
-        "message": status.message,
-        "hint": (
-            "Cookie 已被 B 站拒绝（可能被风控吊销或填写错误）。"
-            "请重新登录小号，复制最新 SESSDATA 到 backend/.env 后重启服务。"
-        ),
-    }
 

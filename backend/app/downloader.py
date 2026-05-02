@@ -459,12 +459,12 @@ def get_platform_referer(platform_key: str | None) -> str | None:
     return PLATFORM_REFERERS.get(platform_key.lower())
 
 
-def create_download_task(url: str, quality: str) -> DownloadTask:
+def create_download_task(url: str, quality: str, *, allow_pro: bool = False) -> DownloadTask:
     url = validate_url(url)
     if quality not in QUALITY_SELECTORS:
         quality = "1080p"
-    if QUALITY_SELECTORS[quality]["pro"]:
-        raise DownloadError("该清晰度为 Pro 专享，MVP 暂未开放")
+    if QUALITY_SELECTORS[quality]["pro"] and not allow_pro:
+        raise DownloadError("该清晰度为 Pro 专享，请先开通会员。")
 
     task_id = uuid.uuid4().hex
     workdir = TEMP_ROOT / task_id

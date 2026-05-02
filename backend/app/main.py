@@ -7,12 +7,14 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .config import API_PREFIX, APP_NAME, FRONTEND_DIST
+from .database import init_database
 from .summary.tasks import cleanup_expired_summary_tasks
 from .tasks import cleanup_expired_tasks
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await init_database()
     cleanup_task = asyncio.create_task(cleanup_expired_tasks())
     summary_cleanup_task = asyncio.create_task(cleanup_expired_summary_tasks())
     yield

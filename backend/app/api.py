@@ -3,7 +3,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
@@ -14,11 +14,14 @@ from .downloader import (
     parse_video_info,
     run_download_task,
 )
+from .membership.api import router as membership_router
+from .membership.dependencies import get_active_membership_from_request
 from .tasks import cancel_task, get_task
 from .summary.api import router as summary_router
 
 
 router = APIRouter()
+router.include_router(membership_router)
 router.include_router(summary_router)
 
 
@@ -50,9 +53,14 @@ async def info(payload: InfoRequest) -> dict:
 
 
 @router.post("/download")
-async def download(payload: DownloadRequest) -> dict:
+async def download(payload: DownloadRequest, request: Request) -> dict:
     try:
-        task = create_download_task(payload.url, payload.quality)
+        active_membership = await get_active_membership_from_request(request)
+        task = create_download_task(
+            payload.url,
+            payload.quality,
+            allow_pro=bool(active_membership),
+        )
         asyncio.create_task(run_download_task(task, payload.url, payload.quality))
         return {"task_id": task.task_id, "status": task.status}
     except Exception as exc:

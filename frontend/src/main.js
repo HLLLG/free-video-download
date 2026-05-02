@@ -1,11 +1,16 @@
 import "./styles.css";
-import { initSummaryFeature, startSummaryAuto, resetSummary } from "./summary.js";
+import { initSummaryFeature, resetSummary, startSummaryAuto } from "./summary.js";
+
+const MEMBERSHIP_STORAGE_KEY = "fvd.membership";
+const DEFAULT_FREE_SUMMARY_MAX_DURATION_SECONDS = 40 * 60;
+const DEFAULT_PRO_SUMMARY_MAX_DURATION_SECONDS = 120 * 60;
 
 const state = {
   info: null,
   selectedQuality: "1080p",
   pollingTimer: null,
   currentTaskId: null,
+  membership: loadStoredMembership(),
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -33,17 +38,26 @@ const els = {
   cancelBtn: $("#cancelBtn"),
   proModal: $("#proModal"),
   closeModal: $("#closeModal"),
+  membershipBadge: $("#membershipBadge"),
+  membershipPanel: $("#membershipPanel"),
+  membershipTitle: $("#membershipTitle"),
+  membershipMeta: $("#membershipMeta"),
+  membershipKeyValue: $("#membershipKeyValue"),
+  copyMembershipKeyBtn: $("#copyMembershipKeyBtn"),
+  restoreModal: $("#restoreModal"),
+  closeRestoreModal: $("#closeRestoreModal"),
+  restoreForm: $("#restoreForm"),
+  restoreEmail: $("#restoreEmail"),
+  restoreKey: $("#restoreKey"),
+  restoreStatus: $("#restoreStatus"),
+  buyButtons: Array.from(document.querySelectorAll("[data-buy-plan]")),
+  openRestoreButtons: Array.from(document.querySelectorAll("[data-open-restore]")),
 };
 
 function refreshIcons() {
   if (window.lucide && typeof window.lucide.createIcons === "function") {
     window.lucide.createIcons();
   }
-}
-
-function setIcon(parent, iconName) {
-  parent.innerHTML = `<i data-lucide="${iconName}"></i>`;
-  refreshIcons();
 }
 
 function formatCount(value) {
@@ -100,16 +114,207 @@ function formatEta(seconds) {
   return minutes ? `${minutes}分${rest}秒` : `${rest}秒`;
 }
 
-async function requestJson(url, options) {
+function formatExpiry(value) {
+  if (!value) return "未开通";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function createCheckoutIntentKey(planType) {
+  if (window.crypto?.randomUUID) {
+    return `checkout_${planType}_${window.crypto.randomUUID()}`;
+  }
+  return `checkout_${planType}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function loadStoredMembership() {
+  try {
+    const raw = window.localStorage.getItem(MEMBERSHIP_STORAGE_KEY);
+    if (!raw) {
+      return {
+        hasMembership: false,
+        isPro: false,
+        email: null,
+        membershipKey: "",
+        proExpiresAt: null,
+        summaryMaxDurationSeconds: DEFAULT_FREE_SUMMARY_MAX_DURATION_SECONDS,
+      };
+    }
+    const parsed = JSON.parse(raw);
+    return normalizeMembership(parsed);
+  } catch {
+    return {
+      hasMembership: false,
+      isPro: false,
+      email: null,
+      membershipKey: "",
+      proExpiresAt: null,
+      summaryMaxDurationSeconds: DEFAULT_FREE_SUMMARY_MAX_DURATION_SECONDS,
+    };
+  }
+}
+
+function normalizeMembership(data = {}, existing = {}) {
+  const membershipKey = String(data.membershipKey || data.membership_key || existing.membershipKey || "").trim();
+  const email = String(data.email || existing.email || "").trim() || null;
+  const hasMembership = Boolean(
+    (data.hasMembership ?? data.has_membership) ?? (membershipKey || email),
+  );
+  const isPro = Boolean(data.isPro ?? data.is_pro);
+  const proExpiresAt = data.proExpiresAt || data.pro_expires_at || null;
+  const summaryMaxDurationSeconds =
+    Number(data.summaryMaxDurationSeconds ?? data.summary_max_duration_seconds) ||
+    (isPro ? DEFAULT_PRO_SUMMARY_MAX_DURATION_SECONDS : DEFAULT_FREE_SUMMARY_MAX_DURATION_SECONDS);
+
+  return {
+    hasMembership,
+    isPro,
+    email,
+    membershipKey,
+    proExpiresAt,
+    summaryMaxDurationSeconds,
+  };
+}
+
+function persistMembership(membership) {
+  if (!membership?.membershipKey && !membership?.email) {
+    window.localStorage.removeItem(MEMBERSHIP_STORAGE_KEY);
+    return;
+  }
+  window.localStorage.setItem(MEMBERSHIP_STORAGE_KEY, JSON.stringify(membership));
+}
+
+function updateMembershipState(data = {}, { persist = true } = {}) {
+  state.membership = normalizeMembership(data, state.membership);
+  if (persist) {
+    persistMembership(state.membership);
+  }
+  if (!state.membership.hasMembership && !state.membership.membershipKey) {
+    window.localStorage.removeItem(MEMBERSHIP_STORAGE_KEY);
+  }
+  renderMembershipState();
+  if (state.info?.qualities) {
+    renderQualities(state.info.qualities);
+  }
+}
+
+function clearMembershipState() {
+  state.membership = normalizeMembership({
+    has_membership: false,
+    is_pro: false,
+    email: null,
+    membership_key: "",
+    pro_expires_at: null,
+    summary_max_duration_seconds: DEFAULT_FREE_SUMMARY_MAX_DURATION_SECONDS,
+  });
+  window.localStorage.removeItem(MEMBERSHIP_STORAGE_KEY);
+  renderMembershipState();
+  if (state.info?.qualities) {
+    renderQualities(state.info.qualities);
+  }
+}
+
+function renderMembershipState() {
+  const membership = state.membership;
+  if (els.membershipBadge) {
+    els.membershipBadge.className = `membership-badge ${
+      membership.isPro ? "pro" : membership.hasMembership ? "expired" : "free"
+    }`;
+    if (membership.isPro) {
+      els.membershipBadge.innerHTML = `<i data-lucide="badge-check"></i><span>Pro 已开通</span>`;
+    } else if (membership.hasMembership) {
+      els.membershipBadge.innerHTML = `<i data-lucide="alert-circle"></i><span>会员已过期</span>`;
+    } else {
+      els.membershipBadge.innerHTML = `<i data-lucide="sparkles"></i><span>Free</span>`;
+    }
+  }
+
+  if (els.membershipPanel) {
+    if (!membership.hasMembership) {
+      els.membershipPanel.classList.add("hidden");
+    } else {
+      els.membershipPanel.classList.remove("hidden");
+      if (membership.isPro) {
+        els.membershipTitle.textContent = "Pro 会员已开通";
+        els.membershipMeta.textContent = `当前邮箱：${membership.email || "未记录"}，有效期至 ${formatExpiry(
+          membership.proExpiresAt,
+        )}。`;
+      } else {
+        els.membershipTitle.textContent = "会员凭证已恢复";
+        els.membershipMeta.textContent = `当前邮箱：${membership.email || "未记录"}。会员已过期，可继续购买续期。`;
+      }
+      els.membershipKeyValue.textContent = membership.membershipKey || "尚未生成";
+      els.copyMembershipKeyBtn.disabled = !membership.membershipKey;
+    }
+  }
+
+  els.buyButtons.forEach((button) => {
+    const plan = button.dataset.buyPlan;
+    if (membership.isPro) {
+      button.disabled = false;
+      button.querySelector("span")?.replaceChildren(
+        document.createTextNode(plan === "yearly" ? "继续续期 365 天" : "继续续期 30 天"),
+      );
+      return;
+    }
+    button.disabled = false;
+    button.querySelector("span")?.replaceChildren(
+      document.createTextNode(plan === "yearly" ? "立即购买年卡" : "立即购买月卡"),
+    );
+  });
+
+  document.body.classList.toggle("is-pro", membership.isPro);
+  refreshIcons();
+}
+
+function buildRequestHeaders(extraHeaders = {}, includeJson = false) {
+  const headers = new Headers(extraHeaders);
+  if (includeJson && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (state.membership?.membershipKey && !headers.has("X-Membership-Key")) {
+    headers.set("X-Membership-Key", state.membership.membershipKey);
+  }
+  return headers;
+}
+
+async function requestJson(url, options = {}) {
+  const hasBody = options.body !== undefined && options.body !== null;
   const response = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: buildRequestHeaders(options.headers, hasBody),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.detail || "请求失败，请稍后重试");
   }
   return data;
+}
+
+async function refreshMembershipStatus({ silent = false } = {}) {
+  if (!state.membership?.membershipKey) {
+    renderMembershipState();
+    return;
+  }
+  try {
+    const data = await requestJson("/api/membership/status");
+    if (!data.has_membership) {
+      clearMembershipState();
+      return;
+    }
+    updateMembershipState(data);
+  } catch (error) {
+    if (!silent) {
+      showStatus(error.message, "error");
+    }
+  }
 }
 
 function openProModal() {
@@ -120,18 +325,53 @@ function closeProModal() {
   els.proModal.classList.add("hidden");
 }
 
+function openRestoreModal() {
+  els.restoreStatus.classList.add("hidden");
+  els.restoreStatus.textContent = "";
+  els.restoreStatus.classList.remove("error");
+  if (state.membership?.email) {
+    els.restoreEmail.value = state.membership.email;
+  }
+  if (state.membership?.membershipKey) {
+    els.restoreKey.value = state.membership.membershipKey;
+  }
+  els.restoreModal.classList.remove("hidden");
+}
+
+function closeRestoreModal() {
+  els.restoreModal.classList.add("hidden");
+}
+
+function showRestoreStatus(message, type = "info") {
+  els.restoreStatus.textContent = message;
+  els.restoreStatus.classList.remove("hidden", "error");
+  if (type === "error") {
+    els.restoreStatus.classList.add("error");
+  }
+}
+
+function getAllowedQuality(qualities) {
+  return qualities.find((item) => !item.pro || state.membership.isPro);
+}
+
 function renderQualities(qualities) {
   els.qualityList.innerHTML = "";
-  const firstFree = qualities.find((item) => !item.pro);
-  state.selectedQuality = firstFree?.key || "1080p";
+  const firstAllowed = getAllowedQuality(qualities);
+  const selectedStillAllowed = qualities.some(
+    (item) => item.key === state.selectedQuality && (!item.pro || state.membership.isPro),
+  );
+  if (!selectedStillAllowed) {
+    state.selectedQuality = firstAllowed?.key || "1080p";
+  }
 
   for (const item of qualities) {
+    const locked = item.pro && !state.membership.isPro;
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `quality-option${item.key === state.selectedQuality ? " active" : ""}${item.pro ? " locked" : ""}`;
-    const sizeBadge = item.size_text
-      ? `<em class="quality-size">≈ ${item.size_text}</em>`
-      : "";
+    button.className = `quality-option${item.key === state.selectedQuality ? " active" : ""}${
+      locked ? " locked" : ""
+    }`;
+    const sizeBadge = item.size_text ? `<em class="quality-size">≈ ${item.size_text}</em>` : "";
     button.innerHTML = `
       <div class="quality-option-head">
         <strong>${item.label}${item.pro ? " · Pro" : ""}</strong>
@@ -140,7 +380,7 @@ function renderQualities(qualities) {
       <span>${item.description}</span>
     `;
     button.addEventListener("click", () => {
-      if (item.pro) {
+      if (locked) {
         openProModal();
         return;
       }
@@ -287,6 +527,11 @@ async function startDownload() {
     showStatus("请先解析视频链接。", "error");
     return;
   }
+  const selectedOption = (state.info.qualities || []).find((item) => item.key === state.selectedQuality);
+  if (selectedOption?.pro && !state.membership.isPro) {
+    openProModal();
+    return;
+  }
 
   els.downloadBtn.disabled = true;
   els.fileLink.classList.add("hidden");
@@ -347,6 +592,96 @@ function pollProgress(taskId) {
   }, 1000);
 }
 
+async function startCheckout(planType) {
+  const button = els.buyButtons.find((item) => item.dataset.buyPlan === planType);
+  const intentKey = createCheckoutIntentKey(planType);
+  els.buyButtons.forEach((item) => {
+    item.disabled = true;
+  });
+  showStatus("正在创建 Stripe 支付订单...");
+  try {
+    const data = await requestJson("/api/stripe/create-checkout", {
+      method: "POST",
+      headers: { "X-Checkout-Intent-Key": intentKey },
+      body: JSON.stringify({ plan_type: planType }),
+    });
+    if (!data.checkout_url) {
+      throw new Error("支付链接创建失败，请稍后重试");
+    }
+    window.location.href = data.checkout_url;
+  } catch (error) {
+    showStatus(error.message, "error");
+    els.buyButtons.forEach((item) => {
+      item.disabled = false;
+    });
+    if (button) button.disabled = false;
+  }
+}
+
+async function handleRestoreSubmit(event) {
+  event.preventDefault();
+  const email = els.restoreEmail.value.trim();
+  const membershipKey = els.restoreKey.value.trim();
+  if (!email || !membershipKey) {
+    showRestoreStatus("请填写邮箱和会员密钥。", "error");
+    return;
+  }
+  showRestoreStatus("正在校验会员信息...");
+  try {
+    const data = await requestJson("/api/membership/activate", {
+      method: "POST",
+      body: JSON.stringify({ email, membership_key: membershipKey }),
+    });
+    updateMembershipState(data);
+    closeRestoreModal();
+    if (data.is_pro) {
+      showStatus(`会员恢复成功，Pro 有效期至 ${formatExpiry(data.pro_expires_at)}。`);
+    } else {
+      showStatus("会员密钥验证成功，但当前会员已过期。你可以直接续期。");
+    }
+  } catch (error) {
+    showRestoreStatus(error.message, "error");
+  }
+}
+
+async function copyMembershipKey() {
+  if (!state.membership?.membershipKey) return;
+  try {
+    await navigator.clipboard.writeText(state.membership.membershipKey);
+    showStatus("会员密钥已复制，请妥善保存。");
+  } catch {
+    showStatus("复制失败，请手动选中会员密钥复制。", "error");
+  }
+}
+
+async function handleCheckoutResult() {
+  const params = new URLSearchParams(window.location.search);
+  const checkoutState = params.get("checkout");
+  const sessionId = params.get("session_id");
+  if (checkoutState === "cancelled") {
+    showStatus("你已取消支付，稍后仍可继续购买。");
+    window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+    return;
+  }
+  if (checkoutState !== "success" || !sessionId) {
+    return;
+  }
+
+  showStatus("支付成功，正在确认会员状态...");
+  try {
+    const data = await requestJson(`/api/stripe/checkout-success?session_id=${encodeURIComponent(sessionId)}`);
+    updateMembershipState(data);
+    els.membershipPanel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    showStatus(
+      `支付成功，Pro 已开通至 ${formatExpiry(data.pro_expires_at)}。会员密钥已自动保存，请同时自行备份。`,
+    );
+  } catch (error) {
+    showStatus(error.message, "error");
+  } finally {
+    window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+  }
+}
+
 document.addEventListener("click", (event) => {
   const scrollTarget = event.target.closest("[data-scroll]");
   if (scrollTarget) {
@@ -363,12 +698,27 @@ els.closeModal.addEventListener("click", closeProModal);
 els.proModal.addEventListener("click", (event) => {
   if (event.target === els.proModal) closeProModal();
 });
+els.restoreModal.addEventListener("click", (event) => {
+  if (event.target === els.restoreModal) closeRestoreModal();
+});
+els.closeRestoreModal.addEventListener("click", closeRestoreModal);
+els.restoreForm.addEventListener("submit", handleRestoreSubmit);
+els.copyMembershipKeyBtn.addEventListener("click", copyMembershipKey);
 els.url.addEventListener("keydown", (event) => {
   if (event.key === "Enter") parseVideo();
 });
-
-document.querySelectorAll(".locked").forEach((node) => {
-  node.addEventListener("click", openProModal);
+els.buyButtons.forEach((button) => {
+  button.addEventListener("click", () => startCheckout(button.dataset.buyPlan));
+});
+els.openRestoreButtons.forEach((button) => {
+  button.addEventListener("click", openRestoreModal);
+});
+els.membershipBadge?.addEventListener("click", () => {
+  if (state.membership.hasMembership) {
+    els.membershipPanel?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  document.querySelector("#pricing")?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 if (document.readyState === "loading") {
@@ -376,6 +726,10 @@ if (document.readyState === "loading") {
 } else {
   refreshIcons();
 }
+
+renderMembershipState();
+void refreshMembershipStatus({ silent: true });
+void handleCheckoutResult();
 
 initSummaryFeature(state, {
   requestJson,

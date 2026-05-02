@@ -1,4 +1,5 @@
 const SUMMARY_MAX_DURATION_SECONDS = 40 * 60;
+const PRO_SUMMARY_MAX_DURATION_SECONDS = 120 * 60;
 
 const summaryState = {
   taskId: null,
@@ -474,6 +475,20 @@ function stopPolling() {
   }
 }
 
+function getSummaryLimitSeconds(appState) {
+  const explicitLimit = Number(appState?.membership?.summaryMaxDurationSeconds);
+  if (explicitLimit > 0) return explicitLimit;
+  return appState?.membership?.isPro ? PRO_SUMMARY_MAX_DURATION_SECONDS : SUMMARY_MAX_DURATION_SECONDS;
+}
+
+function buildDurationLimitMessage(appState, limitSeconds) {
+  const limitMinutes = Math.floor(limitSeconds / 60);
+  if (appState?.membership?.isPro) {
+    return `当前视频超过 ${limitMinutes} 分钟，Pro 版暂不支持自动总结。可缩短视频后再试。`;
+  }
+  return `当前视频超过 ${limitMinutes} 分钟，免费版暂不支持自动总结。可缩短视频或升级 Pro 后再试。`;
+}
+
 function setProgress(elements, task) {
   const pct = task.status === "done" ? 100 : Math.max(0, Math.min(100, Number(task.pct) || 0));
   elements.card.classList.remove("hidden");
@@ -705,8 +720,10 @@ async function startSummary(elements, appState, { mode = "manual" } = {}) {
     if (mode !== "auto") elements.showStatus("请先解析视频链接。", "error");
     return;
   }
-  if (appState.info.duration && appState.info.duration > SUMMARY_MAX_DURATION_SECONDS) {
-    const msg = "当前视频超过 40 分钟，免费版暂不支持自动总结。可缩短视频或升级 Pro 后再试。";
+  const summaryLimitSeconds = getSummaryLimitSeconds(appState);
+  if (appState.info.duration && appState.info.duration > summaryLimitSeconds) {
+    const msg = buildDurationLimitMessage(appState, summaryLimitSeconds);
+    const limitMinutes = Math.floor(summaryLimitSeconds / 60);
     if (mode === "auto") {
       elements.card.classList.remove("hidden");
       elements.title.textContent = "AI 总结暂不可用";
@@ -716,7 +733,7 @@ async function startSummary(elements, appState, { mode = "manual" } = {}) {
       elements.result.classList.add("hidden");
       showNotice(
         elements,
-        `<div><strong>视频超过 40 分钟</strong><p style="margin:6px 0 0;">${escapeHtml(msg)}</p></div>`,
+        `<div><strong>视频超过 ${limitMinutes} 分钟</strong><p style="margin:6px 0 0;">${escapeHtml(msg)}</p></div>`,
       );
     } else {
       elements.showStatus(msg, "error");

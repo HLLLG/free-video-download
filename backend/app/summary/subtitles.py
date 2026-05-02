@@ -326,7 +326,11 @@ def _bilibili_no_subtitle_message(*, has_cookie: bool, is_login: bool) -> str:
     )
 
 
-def extract_subtitles(url: str) -> SubtitleExtraction:
+def extract_subtitles(
+    url: str,
+    *,
+    max_duration_seconds: int | None = SUMMARY_MAX_DURATION_SECONDS,
+) -> SubtitleExtraction:
     try:
         clean_url = validate_url(url)
     except DownloadError as exc:
@@ -353,8 +357,9 @@ def extract_subtitles(url: str) -> SubtitleExtraction:
             duration_seconds = int(duration) if duration else None
         except (TypeError, ValueError):
             duration_seconds = None
-        if duration_seconds and duration_seconds > SUMMARY_MAX_DURATION_SECONDS:
-            raise SummaryError("当前免费版仅支持总结 40 分钟以内的视频。")
+        if max_duration_seconds and duration_seconds and duration_seconds > max_duration_seconds:
+            limit_minutes = max_duration_seconds // 60
+            raise SummaryError(f"当前方案仅支持总结 {limit_minutes} 分钟以内的视频。")
 
         track = _select_subtitle_track(info)
         if not track:

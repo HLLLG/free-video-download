@@ -115,6 +115,36 @@ button {
   color: var(--primary);
 }
 
+.membership-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  border: 1px solid rgba(91, 91, 255, 0.16);
+  border-radius: 999px;
+  padding: 0 14px;
+  color: var(--primary);
+  background: rgba(91, 91, 255, 0.06);
+}
+
+.membership-badge.free {
+  color: #49536a;
+  border-color: rgba(104, 112, 134, 0.16);
+  background: rgba(104, 112, 134, 0.08);
+}
+
+.membership-badge.pro {
+  color: #5d3900;
+  border-color: rgba(255, 181, 71, 0.36);
+  background: linear-gradient(135deg, rgba(255, 181, 71, 0.16), rgba(255, 230, 176, 0.22));
+}
+
+.membership-badge.expired {
+  color: #8a5a00;
+  border-color: rgba(255, 181, 71, 0.28);
+  background: rgba(255, 181, 71, 0.12);
+}
+
 .hero {
   display: grid;
   gap: 20px;
@@ -233,6 +263,62 @@ button {
 .download-panel {
   display: grid;
   gap: 16px;
+}
+
+.membership-panel {
+  max-width: 1040px;
+  margin: 0 auto;
+  border: 1px solid rgba(255, 181, 71, 0.3);
+  border-radius: 24px;
+  padding: 20px 22px;
+  background: linear-gradient(135deg, rgba(255, 251, 240, 0.92), rgba(255, 255, 255, 0.94));
+  box-shadow: 0 16px 44px rgba(255, 181, 71, 0.14);
+}
+
+.membership-panel-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.membership-panel h3 {
+  margin: 8px 0 6px;
+}
+
+.membership-meta {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.membership-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.membership-key-box {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  border: 1px dashed rgba(91, 91, 255, 0.24);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(91, 91, 255, 0.04);
+}
+
+.membership-key-box span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.membership-key-box code {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .input-card,
@@ -1151,6 +1237,12 @@ button {
   box-shadow: 0 24px 60px rgba(255, 181, 71, 0.18);
 }
 
+.modal-actions {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
 .recommend {
   position: absolute;
   top: 18px;
@@ -1193,6 +1285,33 @@ button {
   position: relative;
   width: min(420px, 100%);
   padding: 28px;
+}
+
+.restore-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.field-group {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.field-group input {
+  min-height: 46px;
+  border: 1px solid #dfe3ee;
+  border-radius: 14px;
+  padding: 0 14px;
+  outline: none;
+  background: white;
+}
+
+.field-group input:focus {
+  border-color: rgba(91, 91, 255, 0.45);
+  box-shadow: 0 0 0 4px rgba(91, 91, 255, 0.08);
 }
 
 .modal-close {
@@ -1425,7 +1544,8 @@ body.no-scroll {
   }
 
   .nav-links a,
-  .nav-links .ghost-btn {
+  .nav-links .ghost-btn,
+  .membership-badge {
     display: none;
   }
 
@@ -1454,6 +1574,19 @@ body.no-scroll {
 
   .nav {
     height: 64px;
+  }
+
+  .membership-panel-head {
+    flex-direction: column;
+  }
+
+  .membership-actions {
+    width: 100%;
+  }
+
+  .membership-actions .ghost-btn.small {
+    width: 100%;
+    justify-content: center;
   }
 
   .brand span:last-child {
