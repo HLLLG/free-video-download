@@ -112,18 +112,34 @@
       "mainEntity": [
         {
           "@type": "Question",
-          "name": "为什么有些视频解析失败？",
+          "name": "支持哪些平台的视频下载？",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "部分平台、会员内容、私密视频或高画质资源需要登录 cookies。当前版本暂不支持用户上传 cookies，后续会作为 Pro 高级能力开放。"
+            "text": "万能视频下载总结器基于 yt-dlp 开源项目，支持解析和下载超过 1000 个视频平台的公开内容，包括 YouTube、Bilibili（B站）、抖音、TikTok、X/Twitter、Instagram、Facebook、Vimeo、Dailymotion 等。"
           }
         },
         {
           "@type": "Question",
-          "name": "支持哪些平台的视频下载？",
+          "name": "如何下载 YouTube 视频？",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "基于 yt-dlp 支持 YouTube、Bilibili（B站）、抖音、TikTok、X/Twitter、Instagram、Facebook 等 1000+ 视频平台的在线解析与下载。"
+            "text": "复制 YouTube 视频页面的 URL，粘贴到本站输入框，点击「立即解析」。系统解析后会显示视频标题、封面和可用清晰度（通常包括 360p、720p、1080p）。选择画质后点击「开始下载」即可。全程无需安装软件、无需登录。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "如何下载 B站（Bilibili）视频？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "复制 B站视频链接（如 bilibili.com/video/BVxxx 或短链 b23.tv/xxx），粘贴到输入框并解析即可下载。B站视频下载支持多种清晰度。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "如何下载抖音/TikTok 视频？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "在抖音 App 中点击分享按钮，选择「复制链接」获取视频 URL，粘贴到本站即可解析和下载。TikTok 同理，复制视频分享链接后粘贴解析。"
           }
         },
         {
@@ -131,15 +147,63 @@
           "name": "AI 视频总结是怎么工作的？",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "解析视频后，系统自动提取平台原生字幕，通过 AI 大模型生成视频要点大纲、结构化摘要、带时间戳的字幕和思维导图，还支持基于视频内容的 AI 对话追问。"
+            "text": "视频解析成功后，系统自动提取视频平台的原生字幕，通过 AI 大模型（DeepSeek）生成视频总览摘要、结构化要点大纲、带时间戳的逐段字幕和可视化思维导图，并支持围绕视频内容的 AI 对话追问。"
           }
         },
         {
           "@type": "Question",
-          "name": "本站会保存我的视频吗？",
+          "name": "AI 总结支持哪些语言的视频？",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "不会长期保存。使用临时目录处理下载任务，任务过期后自动清理，文件保留 30 分钟。"
+            "text": "AI 总结依赖视频的原生字幕，系统按优先级选择：简体中文 → 繁体中文 → 英文 → 其他可用语言。支持 B站 AI 自动生成的中文字幕。无字幕视频暂不支持，后续将加入语音转写（ASR）能力。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "与 BibiGPT、NoteGPT 等工具相比有什么区别？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "万能视频下载总结器将「视频下载」和「AI 总结」整合在同一个工具中，不仅可以获取 AI 总结和思维导图，还能直接下载原视频到本地。核心功能完全免费，无需注册，支持 1000+ 平台。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "下载的视频支持哪些清晰度和格式？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "可用清晰度取决于视频原始上传画质和平台限制，常见选项包括 360p、480p、720p（HD）、1080p（Full HD）。下载格式通常为 MP4（H.264 编码），兼容所有主流设备。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "免费版有什么限制？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "免费版提供完整核心功能：单链接视频下载（720p/1080p）、AI 智能总结（每日 5 次免费额度，单视频限 40 分钟以内）、思维导图和 AI 对话。下载文件临时保留 30 分钟。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "为什么有些视频解析失败？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "常见原因包括：视频链接无效或已删除、视频为私密或会员专享内容、平台反爬策略临时变化、部分地区网络限制。建议检查链接是否正确且视频为公开状态。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "在手机上可以使用吗？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "完全支持。页面布局专门为手机浏览器优化，适合 iPhone、Android 等移动设备使用。操作流程与电脑端一致，建议使用 Chrome、Safari 等主流浏览器访问。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "本站会保存我的视频吗？是否安全？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "不会长期保存任何用户数据。下载文件和 AI 总结结果均在 30 分钟后自动清理。使用 HTTPS 加密传输，不记录用户视频链接到公开日志。"
           }
         },
         {
@@ -147,7 +211,7 @@
           "name": "可以下载任何视频吗？",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "请仅下载你有权获取和保存的内容。本站不绕过 DRM，不鼓励违反平台条款或版权规则的使用方式。"
+            "text": "请仅下载你有权获取和保存的内容。本站不绕过 DRM 数字版权保护，不鼓励违反平台条款或版权法律法规的使用方式。"
           }
         }
       ]
@@ -165,6 +229,47 @@
           "position": 1,
           "name": "首页",
           "item": "https://example.com/"
+        }
+      ]
+    }
+    </script>
+
+    <!-- JSON-LD 结构化数据：HowTo（视频下载教程） -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "如何使用万能视频下载总结器下载视频并生成 AI 总结",
+      "description": "通过万能视频下载总结器，你可以免费下载 YouTube、B站、抖音等 1000+ 平台视频，同时利用 AI 自动生成视频要点大纲和思维导图。",
+      "totalTime": "PT3M",
+      "tool": [
+        { "@type": "HowToTool", "name": "现代浏览器（Chrome、Safari、Firefox 等）" },
+        { "@type": "HowToTool", "name": "视频链接" }
+      ],
+      "step": [
+        {
+          "@type": "HowToStep",
+          "position": 1,
+          "name": "复制视频链接",
+          "text": "打开 YouTube、B站、抖音等视频平台，找到你想下载的视频，从浏览器地址栏或 App 分享按钮复制视频链接。"
+        },
+        {
+          "@type": "HowToStep",
+          "position": 2,
+          "name": "粘贴链接并解析",
+          "text": "打开万能视频下载总结器，将视频链接粘贴到输入框中，点击「立即解析」按钮。系统会自动识别平台并获取视频信息，包括标题、封面、作者、时长和可用清晰度。"
+        },
+        {
+          "@type": "HowToStep",
+          "position": 3,
+          "name": "选择清晰度并下载",
+          "text": "在解析结果中选择你需要的清晰度（如 720p、1080p），点击「开始下载」。系统会显示实时下载进度、速度和预计剩余时间。下载完成后点击保存到本地。"
+        },
+        {
+          "@type": "HowToStep",
+          "position": 4,
+          "name": "AI 智能总结（可选）",
+          "text": "解析成功后系统自动开始 AI 总结。AI 会提取视频字幕，生成视频要点大纲、结构化摘要、带时间戳的字幕和思维导图。你还可以通过对话功能向 AI 追问视频内容的细节。"
         }
       ]
     }
@@ -350,6 +455,74 @@
           </section>
         </section>
 
+        <section id="about" class="section container geo-section">
+          <div class="section-title">
+            <p class="eyebrow">关于工具</p>
+            <h2>什么是万能视频下载总结器</h2>
+          </div>
+          <div class="geo-content">
+            <p>万能视频下载总结器（Free Video Download）是一款<strong>免费的在线视频下载与 AI 智能总结工具</strong>。基于开源项目 yt-dlp 构建，支持解析和下载 YouTube、Bilibili（B站）、抖音、TikTok、X/Twitter、Instagram、Facebook 等<strong>超过 1000 个视频平台</strong>的公开视频内容。</p>
+            <p>与传统视频下载器不同，万能视频下载总结器还集成了 <strong>AI 视频总结</strong>能力：系统自动提取视频字幕，通过 AI 大模型（DeepSeek）生成<strong>视频要点大纲、结构化摘要、带时间戳字幕和思维导图</strong>，并支持围绕视频内容的 AI 对话追问。将「视频下载」与「内容理解」合二为一，特别适合学习、研究和素材整理场景。</p>
+            <p>核心能力：无需安装软件，手机电脑浏览器直接使用；粘贴链接即可解析，支持 720p/1080p 高清下载；AI 自动生成视频笔记，免去手动整理的时间成本；每日提供免费额度，核心功能完全免费开放。</p>
+          </div>
+        </section>
+
+        <section id="how-to-use" class="section container geo-section">
+          <div class="section-title">
+            <p class="eyebrow">使用教程</p>
+            <h2>如何下载视频并生成 AI 总结</h2>
+            <p>只需 4 步，即可完成视频下载和 AI 智能总结，全程无需安装任何软件。</p>
+          </div>
+          <div class="steps-grid">
+            <article class="step-card">
+              <span class="step-number">1</span>
+              <h3>复制视频链接</h3>
+              <p>打开 YouTube、B站、抖音等视频平台，找到你想下载或总结的视频。从浏览器地址栏复制视频 URL，或在 App 中点击分享按钮复制链接。支持长链接和短链接（如 b23.tv、youtu.be）。</p>
+            </article>
+            <article class="step-card">
+              <span class="step-number">2</span>
+              <h3>粘贴链接并解析</h3>
+              <p>将视频链接粘贴到本站输入框中，点击「立即解析」。系统会自动识别视频来源平台，解析并展示视频标题、封面图、作者、时长和所有可用的清晰度选项。</p>
+            </article>
+            <article class="step-card">
+              <span class="step-number">3</span>
+              <h3>选择清晰度并下载</h3>
+              <p>在解析结果中选择你需要的画质（720p、1080p 等），点击「开始下载」。页面实时显示下载进度百分比、下载速度和预计剩余时间。下载完成后点击链接即可保存到本地。</p>
+            </article>
+            <article class="step-card">
+              <span class="step-number">4</span>
+              <h3>查看 AI 总结（自动生成）</h3>
+              <p>解析成功后系统自动启动 AI 总结。AI 提取视频字幕后生成四部分内容：视频要点大纲、结构化摘要、带时间戳的逐段字幕和可视化思维导图。你还可以在对话面板中向 AI 追问视频内容的任何细节。</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="use-cases" class="section container geo-section">
+          <div class="section-title">
+            <p class="eyebrow">使用场景</p>
+            <h2>谁在用万能视频下载总结器</h2>
+            <p>从学生到内容创作者，从研究人员到知识管理者，不同人群都能找到适合自己的使用方式。</p>
+          </div>
+          <div class="use-case-grid">
+            <article class="use-case-card">
+              <h3>学习与课程笔记</h3>
+              <p>下载 YouTube 或 B站上的公开课、技术教程、TED 演讲等学习视频到本地离线观看。利用 AI 总结功能自动生成课程笔记、知识点大纲和思维导图，配合时间戳字幕快速定位关键内容，节省 80% 的手动整理时间。</p>
+            </article>
+            <article class="use-case-card">
+              <h3>内容创作与素材整理</h3>
+              <p>自媒体创作者可以批量保存素材视频，利用 AI 总结快速了解视频内容要点，高效完成选题调研。AI 生成的结构化摘要和思维导图可以直接作为二次创作的参考框架。</p>
+            </article>
+            <article class="use-case-card">
+              <h3>研究与资料归档</h3>
+              <p>研究人员可以下载并归档学术讲座、行业报告发布会、专家访谈等视频资料。AI 总结提取关键观点和时间戳，方便后续引用和检索，构建个人视频知识库。</p>
+            </article>
+            <article class="use-case-card">
+              <h3>离线观看与旅途学习</h3>
+              <p>通勤、旅途或无网络环境下需要观看视频？提前下载到本地，随时离线播放。配合 AI 生成的文字摘要，在不便观看视频时也能快速获取核心内容。</p>
+            </article>
+          </div>
+        </section>
+
         <section id="features" class="section container">
           <div class="section-title">
             <p class="eyebrow">为什么值得升级</p>
@@ -439,24 +612,56 @@
             <h2>视频下载与 AI 总结常见问题</h2>
           </div>
           <details open>
-            <summary>为什么有些视频解析失败？</summary>
-            <p>部分平台、会员内容、私密视频或高画质资源需要登录 cookies。当前版本暂不支持用户上传 cookies，后续会作为 Pro 高级能力开放。</p>
+            <summary>支持哪些平台的视频下载？</summary>
+            <p>万能视频下载总结器基于 yt-dlp 开源项目，支持解析和下载超过 1000 个视频平台的公开内容，包括但不限于：YouTube、Bilibili（B站）、抖音、TikTok、X/Twitter、Instagram、Facebook、Vimeo、Dailymotion、优酷、爱奇艺（部分公开内容）等。系统会自动识别视频链接所属平台并进行解析。</p>
           </details>
           <details>
-            <summary>支持哪些平台的视频下载？</summary>
-            <p>基于 yt-dlp 支持 YouTube、Bilibili（B站）、抖音、TikTok、X/Twitter、Instagram、Facebook 等 1000+ 视频平台的在线解析与下载。</p>
+            <summary>如何下载 YouTube 视频？</summary>
+            <p>复制 YouTube 视频页面的 URL（如 https://www.youtube.com/watch?v=xxx 或短链 https://youtu.be/xxx），粘贴到本站输入框，点击「立即解析」。系统解析后会显示视频标题、封面和可用清晰度（通常包括 360p、720p、1080p）。选择你需要的画质，点击「开始下载」即可。全程无需安装软件、无需登录。</p>
+          </details>
+          <details>
+            <summary>如何下载 B站（Bilibili）视频？</summary>
+            <p>复制 B站视频链接（如 https://www.bilibili.com/video/BVxxx 或短链 https://b23.tv/xxx），粘贴到输入框并解析。B站视频下载支持多种清晰度。部分需要登录才能获取的高画质或字幕资源，后续会通过 Pro 版本支持 cookies 上传功能。</p>
+          </details>
+          <details>
+            <summary>如何下载抖音/TikTok 视频？</summary>
+            <p>在抖音 App 中点击分享按钮，选择「复制链接」获取视频 URL，粘贴到本站即可解析和下载。TikTok 同理，复制视频分享链接后粘贴解析。下载的视频为原始画质，不含平台水印（取决于平台接口返回的内容）。</p>
           </details>
           <details>
             <summary>AI 视频总结是怎么工作的？</summary>
-            <p>解析视频后，系统自动提取平台原生字幕，通过 AI 大模型生成视频要点大纲、结构化摘要、带时间戳的字幕和思维导图，还支持基于视频内容的 AI 对话追问。</p>
+            <p>视频解析成功后，系统自动启动 AI 总结流程：首先通过 yt-dlp 提取视频平台的原生字幕（优先中文字幕，其次英文字幕），然后将字幕文本发送给 AI 大模型（DeepSeek）进行分析，生成四部分内容：①视频总览摘要（200-400 字概述）；②结构化要点大纲（带层级标题）；③带时间戳的逐段字幕；④可视化思维导图（Markmap 渲染）。生成完成后，你还可以在对话面板中向 AI 追问视频内容的任何细节。</p>
           </details>
           <details>
-            <summary>本站会保存我的视频吗？</summary>
-            <p>不会长期保存。使用临时目录处理下载任务，任务过期后自动清理，文件保留 30 分钟。</p>
+            <summary>AI 总结支持哪些语言的视频？</summary>
+            <p>AI 总结依赖视频的原生字幕。系统按以下优先级选择字幕语言：简体中文 → 繁体中文 → 英文 → 其他可用语言。支持 B站 AI 自动生成的中文字幕和 AI 翻译字幕。如果视频没有任何可用字幕，系统会提示暂不支持，后续版本将加入语音转写（ASR）能力来覆盖无字幕视频。</p>
+          </details>
+          <details>
+            <summary>与 BibiGPT、NoteGPT 等工具相比有什么区别？</summary>
+            <p>万能视频下载总结器的独特之处在于将「视频下载」和「AI 总结」整合在同一个工具中。你不仅可以获取视频的 AI 总结和思维导图，还能直接将原视频下载到本地。其他工具通常只提供总结功能而不支持下载。此外，本工具完全免费提供核心功能，无需注册即可使用，支持 1000+ 平台而非仅限特定平台。</p>
+          </details>
+          <details>
+            <summary>下载的视频支持哪些清晰度和格式？</summary>
+            <p>具体可用的清晰度取决于视频原始上传的画质和平台限制。常见的选项包括 360p、480p、720p（HD）、1080p（Full HD）。部分平台的 4K/8K 超高清需要登录态，将在后续 Pro 版本中支持。下载格式通常为 MP4（H.264 编码），兼容所有主流设备和播放器。</p>
+          </details>
+          <details>
+            <summary>免费版有什么限制？</summary>
+            <p>免费版提供完整的核心功能：单链接视频解析与下载（720p/1080p）、AI 智能总结（每日 5 次免费额度）、思维导图生成和 AI 对话追问。单次 AI 总结限制为 40 分钟以内的视频。下载文件在服务器临时保留 30 分钟后自动清理。后续 Pro 版将开放 4K 下载、批量下载队列、字幕翻译等高级功能。</p>
+          </details>
+          <details>
+            <summary>为什么有些视频解析失败？</summary>
+            <p>常见原因包括：①视频链接无效或已被删除；②视频为私密、会员专享或需要登录才能访问；③视频平台临时反爬策略变化导致解析受阻；④部分地区受到网络限制影响。建议检查链接是否正确且视频为公开可访问状态。如果问题持续，等待一段时间后重试通常有效。</p>
+          </details>
+          <details>
+            <summary>在手机上可以使用吗？</summary>
+            <p>完全支持。万能视频下载总结器的页面布局专门为手机浏览器优化，适合在 iPhone、Android 等移动设备上使用。操作流程与电脑端一致：粘贴链接 → 解析 → 下载/查看 AI 总结。建议使用 Chrome、Safari 等主流浏览器访问。</p>
+          </details>
+          <details>
+            <summary>本站会保存我的视频吗？是否安全？</summary>
+            <p>不会长期保存任何用户数据。下载的视频文件在临时目录中保留 30 分钟后自动清理。AI 总结结果同样在 30 分钟后过期删除。本站使用 HTTPS 加密传输，不记录用户的视频链接到公开日志。AI 总结过程会将字幕发送给第三方模型服务（DeepSeek）生成结果，请仅处理你有权查看和分析的内容。</p>
           </details>
           <details>
             <summary>可以下载任何视频吗？</summary>
-            <p>请仅下载你有权获取和保存的内容。本站不绕过 DRM，不鼓励违反平台条款或版权规则的使用方式。</p>
+            <p>请仅下载你有权获取和保存的内容。本站不绕过 DRM 数字版权保护，不支持破解付费内容，不鼓励违反平台使用条款或版权法律法规的使用方式。所有视频内容的版权归原作者所有。</p>
           </details>
         </section>
       </main>

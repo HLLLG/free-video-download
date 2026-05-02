@@ -1222,15 +1222,118 @@ button {
   line-height: 1.6;
 }
 
+/* GEO content sections */
+
+.geo-content {
+  max-width: 860px;
+  margin: 0 auto;
+  font-size: 15px;
+  line-height: 1.9;
+  color: #3a4459;
+}
+
+.geo-content p {
+  margin: 0 0 14px;
+}
+
+.geo-content p:last-child {
+  margin-bottom: 0;
+}
+
+.geo-content strong {
+  color: var(--ink);
+}
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  counter-reset: step;
+}
+
+.step-card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.step-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 48px rgba(91, 91, 255, 0.14);
+}
+
+.step-number {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 12px;
+  color: white;
+  font-size: 18px;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--primary), var(--purple));
+  margin-bottom: 12px;
+}
+
+.step-card h3 {
+  margin: 0 0 8px;
+}
+
+.step-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.use-case-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.use-case-card {
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.use-case-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 48px rgba(91, 91, 255, 0.14);
+}
+
+.use-case-card h3 {
+  margin: 0 0 10px;
+}
+
+.use-case-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
 .hidden {
   display: none !important;
 }
 
+body.compact-mode #about,
+body.compact-mode #how-to-use,
+body.compact-mode #use-cases,
 body.compact-mode #features,
 body.compact-mode #pricing,
 body.compact-mode .faq,
 body.compact-mode .nav-links a[href="#features"],
-body.compact-mode .nav-links a[href="#pricing"] {
+body.compact-mode .nav-links a[href="#pricing"],
+body.compact-mode .nav-links a[href="#faq"] {
   display: none !important;
 }
 
@@ -1331,6 +1434,14 @@ body.no-scroll {
     grid-template-columns: 1fr;
   }
 
+  .steps-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .use-case-grid {
+    grid-template-columns: 1fr;
+  }
+
   .price-card.highlight {
     transform: none;
   }
@@ -1357,6 +1468,10 @@ body.no-scroll {
   .quality-list,
   .action-row,
   .chat-form {
+    grid-template-columns: 1fr;
+  }
+
+  .steps-grid {
     grid-template-columns: 1fr;
   }
 
