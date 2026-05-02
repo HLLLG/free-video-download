@@ -2,15 +2,20 @@ from __future__ import annotations
 
 import html
 import json
+import logging
 import re
 from dataclasses import dataclass
 from urllib.request import Request, urlopen
 
 import yt_dlp
 
+
+logger = logging.getLogger(__name__)
+
 from ..downloader import DownloadError, validate_url
 from .bilibili_auth import (
     build_subtitle_request_headers,
+    check_cookie_login,
     get_cookie_bundle,
     is_bilibili_url,
     safe_unlink,
@@ -294,17 +299,30 @@ def _extract_info(url: str, cookiefile: str | None = None) -> dict:
         return ydl.sanitize_info(ydl.extract_info(url, download=False))
 
 
-def _bilibili_no_subtitle_message(has_cookie: bool) -> str:
-    if has_cookie:
+def _bilibili_no_subtitle_message(*, has_cookie: bool, is_login: bool) -> str:
+    """根据 Cookie 状态生成 B 站抓不到字幕的错误文案。
+
+    三种场景：
+    1) 没配 Cookie -> 提示运营方去配
+    2) 配了 Cookie 但 B 站说未登录 -> Cookie 失效 / 被风控
+    3) Cookie 有效但视频确实没字幕 -> 视频本身没 CC 字幕轨
+    """
+    if not has_cookie:
         return (
-            "当前 B 站视频没有可用字幕（运营方 Cookie 有效，但视频本身没有 UP 字幕 / AI 字幕）。"
-            "后续版本会加入语音转写能力。"
+            "当前 B 站视频需要登录才能读取字幕（包括 AI 自动字幕和 AI 翻译字幕），"
+            "站点未配置 B 站登录态 Cookie，AI 总结暂不可用。请运营方在 backend/.env "
+            "配置 BILIBILI_SESSDATA 后重试。"
         )
-    # 没配 Cookie 时给运维一个明确指引
+    if not is_login:
+        # Cookie 配了但 B 站不认 —— 要么被风控吊销，要么写错了
+        return (
+            "站点配置的 B 站登录态 Cookie 已被 B 站拒绝（可能被风控吊销或填写错误）。"
+            "AI 总结暂不可用，请运营方重新登录小号、复制最新的 SESSDATA 到 backend/.env 后重启服务。"
+        )
     return (
-        "当前 B 站视频需要登录才能读取字幕（包括 AI 自动字幕和 AI 翻译字幕），"
-        "站点未配置 B 站登录态 Cookie，AI 总结暂不可用。请运营方在 backend/.env "
-        "配置 BILIBILI_SESSDATA 后重试。"
+        "该 B 站视频在服务端没有任何 CC 字幕轨（Cookie 有效、登录态正常，B 站直接返回字幕列表为空）。"
+        "如果你在视频画面里看到了字幕，那很可能是 UP 主烧录在视频画面上的硬字幕，需要语音识别 (ASR) 才能提取，"
+        "免费版暂未支持。判断方法：在 B 站网页播放器右下角找「字幕」(CC) 按钮，按钮不可点说明就是这种情况。"
     )
 
 
@@ -341,7 +359,30 @@ def extract_subtitles(url: str) -> SubtitleExtraction:
         track = _select_subtitle_track(info)
         if not track:
             if is_bili:
-                raise SummaryError(_bilibili_no_subtitle_message(bool(bundle and bundle.has_login)))
+                # 区分 Cookie 失效 vs 视频真的没字幕：
+                # B 站对登录态字幕走 /x/player/v2 + need_login_subtitle 机制，单纯看 yt-dlp 输出
+                # 拿不到字幕的话两种情况长得一模一样。这里主动调一次 /x/web-interface/nav
+                # 拿登录态，给运营方/用户准确提示。
+                login_status = check_cookie_login(bundle) if bundle else None
+                is_login = bool(login_status and login_status.is_login)
+                logger.warning(
+                    "[bilibili] no subtitle track for %s; subtitles_keys=%s, "
+                    "automatic_captions_keys=%s, has_login_cookie=%s, is_login=%s, "
+                    "nav_code=%s, nav_message=%s",
+                    clean_url,
+                    list((info.get("subtitles") or {}).keys()),
+                    list((info.get("automatic_captions") or {}).keys()),
+                    bool(bundle and bundle.has_login),
+                    is_login,
+                    login_status.code if login_status else None,
+                    login_status.message if login_status else None,
+                )
+                raise SummaryError(
+                    _bilibili_no_subtitle_message(
+                        has_cookie=bool(bundle and bundle.has_login),
+                        is_login=is_login,
+                    )
+                )
             raise SummaryError(
                 "当前视频没有可用字幕，AI 总结暂不支持。后续版本会加入语音转写能力。"
             )

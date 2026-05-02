@@ -31,16 +31,23 @@ def get_client_ip(request: Request) -> str:
 
 
 def assert_daily_limit(client_ip: str) -> None:
+    # SUMMARY_DAILY_LIMIT_PER_IP <= 0 表示不限制，方便 MVP / 测试期不开启额度。
+    if SUMMARY_DAILY_LIMIT_PER_IP <= 0:
+        return
     today = date.today().isoformat()
     counter = SUMMARY_USAGE.get(client_ip)
     if not counter or counter.day != today:
         SUMMARY_USAGE[client_ip] = UsageCounter(day=today, count=0)
         return
     if counter.count >= SUMMARY_DAILY_LIMIT_PER_IP:
-        raise SummaryError("当前免费版每天最多总结 5 个视频，请明天再试或升级 Pro。")
+        raise SummaryError(
+            f"当前免费版每天最多总结 {SUMMARY_DAILY_LIMIT_PER_IP} 个视频，请明天再试或升级 Pro。"
+        )
 
 
 def increment_usage(client_ip: str) -> None:
+    if SUMMARY_DAILY_LIMIT_PER_IP <= 0:
+        return
     today = date.today().isoformat()
     counter = SUMMARY_USAGE.get(client_ip)
     if not counter or counter.day != today:

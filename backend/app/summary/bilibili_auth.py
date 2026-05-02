@@ -9,12 +9,19 @@ need_login_subtitle: true 且 subtitles 列表为空。本模块只对 B 站 URL
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 import tempfile
 from dataclasses import dataclass
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 from .settings import BILIBILI_BILI_JCT, BILIBILI_BUVID3, BILIBILI_SESSDATA
+
+
+logger = logging.getLogger(__name__)
 
 
 _BILIBILI_HOST_SUFFIXES = (
@@ -124,6 +131,72 @@ def safe_unlink(path: str | None) -> None:
         os.unlink(path)
     except OSError:
         pass
+
+
+@dataclass(frozen=True)
+class BilibiliLoginStatus:
+    """运营方共享小号在 B 站当前的登录态。"""
+
+    is_login: bool
+    uname: str | None  # 登录用户名（用于运营自检显示）
+    mid: int | None  # 用户 mid，用于运营自检
+    code: int  # B 站返回的 code，0=正常、-101=未登录
+    message: str  # B 站返回的原文 message
+    has_cookie: bool  # 站点 .env 里是否配置了 SESSDATA
+
+
+def check_cookie_login(bundle: BilibiliCookieBundle | None = None) -> BilibiliLoginStatus:
+    """直接调 B 站 /x/web-interface/nav 验证当前 Cookie 是否仍被识别为登录态。
+
+    关键场景：SESSDATA 结构上没到期但被 B 站主动吊销时（小号被风控等），
+    此处会拿到 code=-101 / isLogin=False，让上游能给出 "Cookie 失效" 而不是
+    "视频没字幕" 的误导文案。
+    """
+    bundle = bundle or get_cookie_bundle()
+    if not bundle.has_login:
+        return BilibiliLoginStatus(
+            is_login=False,
+            uname=None,
+            mid=None,
+            code=-1,
+            message="未配置 BILIBILI_SESSDATA",
+            has_cookie=False,
+        )
+
+    headers = {
+        "User-Agent": BILIBILI_USER_AGENT,
+        "Referer": BILIBILI_REFERER,
+        "Accept": "*/*",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Cookie": bundle.cookie_header(),
+    }
+    request = Request("https://api.bilibili.com/x/web-interface/nav", headers=headers)
+    try:
+        with urlopen(request, timeout=10) as response:
+            payload = json.loads(response.read().decode("utf-8", errors="replace"))
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+        logger.warning("[bilibili] cookie nav check failed: %s", exc)
+        # 网络错误：保守地返回未知，按 has_cookie=True 但 is_login=False 处理
+        return BilibiliLoginStatus(
+            is_login=False,
+            uname=None,
+            mid=None,
+            code=-2,
+            message=f"无法访问 B 站校验登录态：{exc}",
+            has_cookie=True,
+        )
+
+    code = int(payload.get("code") or 0)
+    message = str(payload.get("message") or "")
+    data = payload.get("data") or {}
+    return BilibiliLoginStatus(
+        is_login=bool(data.get("isLogin")),
+        uname=data.get("uname") or None,
+        mid=int(data.get("mid")) if data.get("mid") else None,
+        code=code,
+        message=message,
+        has_cookie=True,
+    )
 
 
 def build_subtitle_request_headers(url: str, bundle: BilibiliCookieBundle | None = None) -> dict[str, str]:

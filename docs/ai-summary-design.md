@@ -456,11 +456,13 @@ B 站把字幕分为：
 3. `extract_subtitles` 检测到 B 站 URL 时把 `cookiefile` 透给 `yt-dlp`，处理完毕在 `finally` 中删除临时文件。
 4. 字幕直链 / 后续直接调 B 站 API 时，HTTP 头自动带 `Referer: https://www.bilibili.com`、Cookie、桌面 UA；非 B 站域名（YouTube、抖音等）走默认 UA，绝不串味。
 5. 没配 Cookie 时返回明确文案：「当前 B 站视频需要登录才能读取字幕……请运营方在 backend/.env 配置 BILIBILI_SESSDATA 后重试」，避免被笼统的「字幕内容为空」掩盖真因。
+6. **登录态校验与错误分流**：当 `yt-dlp` 未选出可用字幕轨时，后端调用 `GET https://api.bilibili.com/x/web-interface/nav`（携带与字幕请求相同的 Cookie），根据返回的 `data.isLogin` 与 `code` 区分：**未配置 Cookie / Cookie 被 B 站拒绝（`code=-101` 等，可能风控或过期）/ Cookie 有效但视频在服务端无 CC 字幕轨**（含画面烧录硬字幕与无轨两种情况）。避免把「小号被风控」误判为「视频没字幕」。
+7. **运营自检接口**：`GET /api/summary/bilibili/cookie-status` 返回 `has_cookie`、`is_login`、脱敏后的 `uname` / `mid` 与提示文案，不暴露 Cookie 原文，便于部署前验证 `.env` 是否仍有效。
 
 风险与注意：
 
 - SESSDATA 由站长（运营方）的小号产生，所有用户共用；号被风控大家都受影响。
-- SESSDATA 一般 1-3 个月失效，需要手动续期。
+- SESSDATA 一般 1-3 个月失效，需要手动续期；此外 B 站可能对共享小号**间歇性**拒绝登录态（`/x/web-interface/nav` 在短时间内 `isLogin` 抖动），表现为同一视频「有时能总结、有时不能」。
 - 不暴露任何 Cookie 字段给前端；前端永远只能拿到「需要 Cookie」「Cookie 失效」之类的脱敏文案。
 
 后续演进：
@@ -492,7 +494,7 @@ MVP 可以先做简单规则：
 DEEPSEEK_API_KEY=sk-...
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-v4-flash
-SUMMARY_DAILY_LIMIT_PER_IP=5
+SUMMARY_DAILY_LIMIT_PER_IP=0
 SUMMARY_MAX_DURATION_SECONDS=2400
 SUMMARY_TASK_TTL_SECONDS=1800
 # 可选：B 站登录态 Cookie，解锁 AI 生成字幕 / AI 翻译字幕 / 部分 UP 上传字幕
@@ -506,7 +508,7 @@ BILIBILI_BUVID3=
 ```python
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
-SUMMARY_DAILY_LIMIT_PER_IP = int(os.getenv("SUMMARY_DAILY_LIMIT_PER_IP", "5"))
+SUMMARY_DAILY_LIMIT_PER_IP = int(os.getenv("SUMMARY_DAILY_LIMIT_PER_IP", "0"))  # 0 或负数表示不限制
 SUMMARY_MAX_DURATION_SECONDS = int(os.getenv("SUMMARY_MAX_DURATION_SECONDS", str(40 * 60)))
 SUMMARY_TASK_TTL_SECONDS = int(os.getenv("SUMMARY_TASK_TTL_SECONDS", str(30 * 60)))
 ```

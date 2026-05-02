@@ -88,100 +88,103 @@
 
             <div id="statusBox" class="status-box hidden" role="status"></div>
 
-            <article id="resultCard" class="result-card hidden">
-              <div class="thumb-wrap">
-                <img id="thumbnail" alt="视频封面" />
-                <div class="thumb-fallback">
-                  <i data-lucide="image"></i>
-                  <span>封面加载中</span>
+            <div id="parseGrid" class="parse-grid hidden">
+              <article id="resultCard" class="result-card">
+                <div class="thumb-wrap">
+                  <img id="thumbnail" alt="视频封面" />
+                  <div class="thumb-fallback">
+                    <i data-lucide="image"></i>
+                    <span>封面加载中</span>
+                  </div>
+                  <span id="platformBadge" class="platform-badge">
+                    <i data-lucide="globe"></i>
+                    <span>平台</span>
+                  </span>
                 </div>
-                <span id="platformBadge" class="platform-badge">
-                  <i data-lucide="globe"></i>
-                  <span>平台</span>
-                </span>
-              </div>
-              <div class="video-meta">
-                <div>
-                  <p class="small-label">
-                    <i data-lucide="check-circle-2"></i>
-                    <span>解析成功</span>
-                  </p>
-                  <h2 id="videoTitle">视频标题</h2>
-                  <ul class="meta-stats" id="metaStats"></ul>
-                </div>
-                <div>
-                  <p class="small-label">
-                    <i data-lucide="settings-2"></i>
-                    <span>选择清晰度</span>
-                  </p>
-                  <div id="qualityList" class="quality-list"></div>
-                </div>
-                <div class="action-row">
-                  <button id="downloadBtn" class="primary-btn full" type="button">
-                    <i data-lucide="download"></i>
-                    <span>开始下载</span>
-                  </button>
-                  <button id="summaryBtn" class="ghost-btn full" type="button">
-                    <i data-lucide="brain-circuit"></i>
-                    <span>AI 总结</span>
-                  </button>
-                </div>
-              </div>
-            </article>
+                <div class="video-meta">
+                  <div>
+                    <p class="small-label">
+                      <i data-lucide="check-circle-2"></i>
+                      <span>解析成功</span>
+                    </p>
+                    <h2 id="videoTitle">视频标题</h2>
+                    <ul class="meta-stats" id="metaStats"></ul>
+                  </div>
+                  <div>
+                    <p class="small-label">
+                      <i data-lucide="settings-2"></i>
+                      <span>选择清晰度</span>
+                    </p>
+                    <div id="qualityList" class="quality-list"></div>
+                  </div>
+                  <div class="action-row">
+                    <button id="downloadBtn" class="primary-btn full" type="button">
+                      <i data-lucide="download"></i>
+                      <span>开始下载</span>
+                    </button>
+                    <button id="summaryBtn" class="ghost-btn full" type="button">
+                      <i data-lucide="refresh-cw"></i>
+                      <span>重新生成总结</span>
+                    </button>
+                  </div>
 
-            <article id="progressCard" class="progress-card hidden">
-              <div class="progress-head">
-                <div>
-                  <p class="small-label">
-                    <i data-lucide="loader-2"></i>
-                    <span>下载任务</span>
-                  </p>
-                  <h3 id="progressTitle">准备中</h3>
+                  <section id="progressCard" class="progress-card hidden" aria-label="下载进度">
+                    <div class="progress-head">
+                      <div>
+                        <p class="small-label">
+                          <i data-lucide="loader-2"></i>
+                          <span>下载任务</span>
+                        </p>
+                        <h3 id="progressTitle">准备中</h3>
+                      </div>
+                      <span id="progressPct" class="progress-pct">0%</span>
+                    </div>
+                    <div class="progress-track">
+                      <div id="progressBar" class="progress-bar"></div>
+                    </div>
+                    <div class="progress-stats">
+                      <span id="speedText"><i data-lucide="zap"></i><span>速度：等待中</span></span>
+                      <span id="etaText"><i data-lucide="timer"></i><span>剩余：--</span></span>
+                    </div>
+                    <a id="fileLink" class="download-link hidden" href="#" download>
+                      <i data-lucide="download-cloud"></i>
+                      <span>下载完成，保存到本地</span>
+                    </a>
+                    <button id="cancelBtn" class="ghost-btn full cancel-btn hidden" type="button">
+                      <i data-lucide="x-circle"></i>
+                      <span>取消下载</span>
+                    </button>
+                  </section>
                 </div>
-                <span id="progressPct" class="progress-pct">0%</span>
-              </div>
-              <div class="progress-track">
-                <div id="progressBar" class="progress-bar"></div>
-              </div>
-              <div class="progress-stats">
-                <span id="speedText"><i data-lucide="zap"></i><span>速度：等待中</span></span>
-                <span id="etaText"><i data-lucide="timer"></i><span>剩余：--</span></span>
-              </div>
-              <a id="fileLink" class="download-link hidden" href="#" download>
-                <i data-lucide="download-cloud"></i>
-                <span>下载完成，保存到本地</span>
-              </a>
-              <button id="cancelBtn" class="ghost-btn full cancel-btn hidden" type="button">
-                <i data-lucide="x-circle"></i>
-                <span>取消下载</span>
-              </button>
-            </article>
+              </article>
 
-            <article id="summaryCard" class="summary-card hidden">
-              <div class="summary-head">
-                <div>
-                  <p class="small-label">
-                    <i data-lucide="sparkles"></i>
-                    <span>AI 视频总结</span>
-                  </p>
-                  <h3 id="summaryTitle">准备生成总结</h3>
+              <article id="summaryCard" class="summary-card">
+                <div class="summary-head">
+                  <div>
+                    <p class="small-label">
+                      <i data-lucide="sparkles"></i>
+                      <span>AI 视频总结</span>
+                    </p>
+                    <h3 id="summaryTitle">等待解析视频</h3>
+                  </div>
+                  <span id="summaryPct" class="progress-pct">0%</span>
                 </div>
-                <span id="summaryPct" class="progress-pct">0%</span>
-              </div>
-              <div class="progress-track">
-                <div id="summaryBar" class="progress-bar"></div>
-              </div>
-              <p id="summaryStage" class="summary-stage">等待开始</p>
-              <div id="summaryResult" class="summary-result hidden">
-                <div class="summary-tabs" role="tablist" aria-label="AI 总结结果">
-                  <button class="summary-tab active" type="button" data-summary-tab="outline">要点</button>
-                  <button class="summary-tab" type="button" data-summary-tab="transcript">字幕</button>
-                  <button class="summary-tab" type="button" data-summary-tab="mindmap">思维导图</button>
-                  <button class="summary-tab" type="button" data-summary-tab="chat">对话</button>
+                <div id="summaryProgressTrack" class="progress-track">
+                  <div id="summaryBar" class="progress-bar"></div>
                 </div>
-                <div id="summaryTabPanel" class="summary-tab-panel"></div>
-              </div>
-            </article>
+                <p id="summaryStage" class="summary-stage">解析视频后将自动开始 AI 总结</p>
+                <div id="summaryNotice" class="summary-notice hidden" role="status"></div>
+                <div id="summaryResult" class="summary-result hidden">
+                  <div class="summary-tabs" role="tablist" aria-label="AI 总结结果">
+                    <button class="summary-tab active" type="button" data-summary-tab="outline">要点</button>
+                    <button class="summary-tab" type="button" data-summary-tab="transcript">字幕</button>
+                    <button class="summary-tab" type="button" data-summary-tab="mindmap">思维导图</button>
+                    <button class="summary-tab" type="button" data-summary-tab="chat">对话</button>
+                  </div>
+                  <div id="summaryTabPanel" class="summary-tab-panel"></div>
+                </div>
+              </article>
+            </div>
           </section>
         </section>
 

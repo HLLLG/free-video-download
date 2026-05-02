@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from ..config import MAX_URL_LENGTH
 from ..downloader import DownloadError, validate_url
+from .bilibili_auth import check_cookie_login
 from .export import SUPPORTED_FORMATS, media_type_for, render_subtitle, safe_filename
 from .models import SummaryError
 from .pipeline import chat_with_summary, run_summary_task
@@ -116,4 +117,38 @@ async def delete_summary(summary_id: str) -> dict:
     if not task:
         raise HTTPException(status_code=404, detail="总结任务不存在或已过期")
     return {"ok": True}
+
+
+@router.get("/bilibili/cookie-status")
+async def bilibili_cookie_status() -> dict:
+    """运营方自检：当前 .env 配置的 BILIBILI_SESSDATA 在 B 站是否仍被识别为登录态。
+
+    返回脱敏后的登录信息（uname / mid），不暴露 Cookie 原文。
+    用法： curl http://127.0.0.1:8001/api/summary/bilibili/cookie-status
+    """
+    status = check_cookie_login()
+    if not status.has_cookie:
+        return {
+            "has_cookie": False,
+            "is_login": False,
+            "hint": "未在 backend/.env 配置 BILIBILI_SESSDATA。如需总结 B 站视频请添加该配置。",
+        }
+    if status.is_login:
+        return {
+            "has_cookie": True,
+            "is_login": True,
+            "uname": status.uname,
+            "mid": status.mid,
+            "hint": f"Cookie 当前有效，登录身份：{status.uname or '未知'}（mid={status.mid}）。",
+        }
+    return {
+        "has_cookie": True,
+        "is_login": False,
+        "code": status.code,
+        "message": status.message,
+        "hint": (
+            "Cookie 已被 B 站拒绝（可能被风控吊销或填写错误）。"
+            "请重新登录小号，复制最新 SESSDATA 到 backend/.env 后重启服务。"
+        ),
+    }
 

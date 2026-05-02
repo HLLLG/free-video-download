@@ -1,5 +1,5 @@
 import "./styles.css";
-import { initSummaryFeature } from "./summary.js";
+import { initSummaryFeature, startSummaryAuto, resetSummary } from "./summary.js";
 
 const state = {
   info: null,
@@ -15,6 +15,7 @@ const els = {
   parseBtn: $("#parseBtn"),
   downloadBtn: $("#downloadBtn"),
   statusBox: $("#statusBox"),
+  parseGrid: $("#parseGrid"),
   resultCard: $("#resultCard"),
   progressCard: $("#progressCard"),
   thumbnail: $("#thumbnail"),
@@ -188,7 +189,8 @@ function renderInfo(info) {
   els.videoTitle.textContent = info.title || "未命名视频";
   renderMetaStats(info);
   renderQualities(info.qualities || []);
-  els.resultCard.classList.remove("hidden");
+  els.parseGrid.classList.remove("hidden");
+  document.body.classList.add("compact-mode");
   refreshIcons();
 }
 
@@ -261,6 +263,7 @@ async function parseVideo() {
   els.fileLink.classList.add("hidden");
   els.cancelBtn.classList.add("hidden");
   els.progressCard.classList.add("hidden");
+  resetSummary();
   showStatus("正在解析视频信息...");
 
   try {
@@ -269,7 +272,8 @@ async function parseVideo() {
       body: JSON.stringify({ url }),
     });
     renderInfo(info);
-    showStatus("解析成功，请选择清晰度后开始下载。");
+    showStatus("解析成功，AI 正在自动生成视频总结...");
+    startSummaryAuto();
   } catch (error) {
     showStatus(error.message, "error");
   } finally {

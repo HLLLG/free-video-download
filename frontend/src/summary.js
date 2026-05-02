@@ -8,6 +8,8 @@ const summaryState = {
   sendingChat: false,
   mindmapFullscreen: false,
 };
+
+let runtime = null;
 const MARKMAP_DEPS = [
   "https://cdn.jsdelivr.net/npm/d3@7.9.0",
   "https://cdn.jsdelivr.net/npm/markmap-lib@0.18.12/dist/browser/index.iife.min.js",
@@ -479,6 +481,49 @@ function setProgress(elements, task) {
   elements.pct.textContent = `${pct.toFixed(0)}%`;
   elements.bar.style.width = `${pct}%`;
   elements.stage.textContent = task.error || task.stage_text || "正在处理...";
+  hideNotice(elements);
+  if (elements.track) elements.track.classList.remove("hidden");
+  if (elements.pct) elements.pct.classList.remove("hidden");
+}
+
+function hideNotice(elements) {
+  if (!elements?.notice) return;
+  elements.notice.classList.add("hidden");
+  elements.notice.classList.remove("error");
+  elements.notice.innerHTML = "";
+}
+
+function showNotice(elements, message, { type = "info" } = {}) {
+  if (!elements?.notice) return;
+  elements.notice.classList.remove("hidden");
+  elements.notice.classList.toggle("error", type === "error");
+  elements.notice.innerHTML = message;
+  if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
+function resetSummaryUi(elements) {
+  stopPolling();
+  summaryState.taskId = null;
+  summaryState.result = null;
+  summaryState.activeTab = "outline";
+  summaryState.sendingChat = false;
+  if (!elements) return;
+  elements.title.textContent = "等待解析视频";
+  elements.pct.textContent = "0%";
+  elements.bar.style.width = "0%";
+  elements.stage.textContent = "解析视频后将自动开始 AI 总结";
+  elements.result.classList.add("hidden");
+  if (elements.panel) elements.panel.innerHTML = "";
+  hideNotice(elements);
+}
+
+export function resetSummary() {
+  resetSummaryUi(runtime?.elements);
+}
+
+export function startSummaryAuto() {
+  if (!runtime) return;
+  startSummary(runtime.elements, runtime.appState, { mode: "auto" });
 }
 
 function switchTab(elements, tabName) {
@@ -608,37 +653,74 @@ function bindChatForm(elements) {
   });
 }
 
-function pollSummary(elements, taskId) {
+function pollSummary(elements, taskId, { mode = "manual" } = {}) {
   stopPolling();
   summaryState.pollingTimer = setInterval(async () => {
     try {
       const task = await elements.requestJson(`/api/summary/${taskId}`);
+      if (summaryState.taskId !== taskId) {
+        stopPolling();
+        return;
+      }
       setProgress(elements, task);
       if (task.status === "error") {
         stopPolling();
-        elements.showStatus(task.error || "AI 总结失败，请稍后重试。", "error");
+        reportSummaryError(elements, task.error || "AI 总结失败，请稍后重试。", { mode });
       }
       if (task.status === "done") {
         stopPolling();
-        elements.showStatus("AI 总结完成，可以查看要点、字幕、思维导图和继续追问。");
+        if (mode !== "auto") {
+          elements.showStatus("AI 总结完成，可以查看要点、字幕、思维导图和继续追问。");
+        }
         renderResult(elements, task);
       }
       elements.refreshIcons();
     } catch (error) {
       stopPolling();
-      elements.showStatus(error.message, "error");
+      reportSummaryError(elements, error.message, { mode });
     }
   }, 1000);
 }
 
-async function startSummary(elements, appState) {
+function reportSummaryError(elements, message, { mode }) {
+  const safe = escapeHtml(message || "AI 总结失败，请稍后重试。");
+  showNotice(
+    elements,
+    `<div><strong>AI 总结暂未完成</strong><p style="margin:6px 0 0;">${safe}</p>` +
+      `<p style="margin:8px 0 0;font-size:12px;opacity:.85;">你可以点击左侧的「重新生成总结」按钮再试一次。</p></div>`,
+    { type: "error" },
+  );
+  if (elements.track) elements.track.classList.add("hidden");
+  if (elements.pct) elements.pct.classList.add("hidden");
+  elements.title.textContent = "AI 总结未完成";
+  elements.stage.textContent = "";
+  if (mode !== "auto") {
+    elements.showStatus(message, "error");
+  }
+}
+
+async function startSummary(elements, appState, { mode = "manual" } = {}) {
   const url = elements.normalizeVideoUrl(elements.url.value);
   if (!url || !appState.info) {
-    elements.showStatus("请先解析视频链接。", "error");
+    if (mode !== "auto") elements.showStatus("请先解析视频链接。", "error");
     return;
   }
   if (appState.info.duration && appState.info.duration > SUMMARY_MAX_DURATION_SECONDS) {
-    elements.showStatus("当前免费版仅支持总结 40 分钟以内的视频。", "error");
+    const msg = "当前视频超过 40 分钟，免费版暂不支持自动总结。可缩短视频或升级 Pro 后再试。";
+    if (mode === "auto") {
+      elements.card.classList.remove("hidden");
+      elements.title.textContent = "AI 总结暂不可用";
+      elements.stage.textContent = "";
+      if (elements.track) elements.track.classList.add("hidden");
+      if (elements.pct) elements.pct.classList.add("hidden");
+      elements.result.classList.add("hidden");
+      showNotice(
+        elements,
+        `<div><strong>视频超过 40 分钟</strong><p style="margin:6px 0 0;">${escapeHtml(msg)}</p></div>`,
+      );
+    } else {
+      elements.showStatus(msg, "error");
+    }
     return;
   }
 
@@ -652,6 +734,9 @@ async function startSummary(elements, appState) {
   elements.pct.textContent = "0%";
   elements.bar.style.width = "0%";
   elements.stage.textContent = "正在创建 AI 总结任务...";
+  hideNotice(elements);
+  if (elements.track) elements.track.classList.remove("hidden");
+  if (elements.pct) elements.pct.classList.remove("hidden");
 
   try {
     const task = await elements.requestJson("/api/summary", {
@@ -664,9 +749,9 @@ async function startSummary(elements, appState) {
     });
     summaryState.taskId = task.summary_id;
     elements.stage.textContent = "任务已创建，正在读取字幕...";
-    pollSummary(elements, task.summary_id);
+    pollSummary(elements, task.summary_id, { mode });
   } catch (error) {
-    elements.showStatus(error.message, "error");
+    reportSummaryError(elements, error.message, { mode });
   } finally {
     elements.button.disabled = false;
   }
@@ -681,7 +766,9 @@ export function initSummaryFeature(appState, helpers) {
     title: $("#summaryTitle"),
     pct: $("#summaryPct"),
     bar: $("#summaryBar"),
+    track: $("#summaryProgressTrack"),
     stage: $("#summaryStage"),
+    notice: $("#summaryNotice"),
     result: $("#summaryResult"),
     panel: $("#summaryTabPanel"),
     tabs: Array.from(document.querySelectorAll("[data-summary-tab]")),
@@ -691,8 +778,9 @@ export function initSummaryFeature(appState, helpers) {
   if (!elements.button || !elements.card) return;
 
   window.__summaryHelpers = helpers;
+  runtime = { elements, appState };
 
-  elements.button.addEventListener("click", () => startSummary(elements, appState));
+  elements.button.addEventListener("click", () => startSummary(elements, appState, { mode: "manual" }));
   elements.tabs.forEach((button) => {
     button.addEventListener("click", () => switchTab(elements, button.dataset.summaryTab));
   });

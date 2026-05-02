@@ -12,7 +12,7 @@
 - 临时文件自动清理。
 - AI 视频总结：基于平台原生字幕生成视频总览、结构化要点和思维导图。
 - 带时间戳字幕展示和基于字幕内容的 AI 追问。
-- 免费限额：每 IP 每天 5 次，单视频最长 40 分钟。
+- 免费限额：AI 总结次数由环境变量 `SUMMARY_DAILY_LIMIT_PER_IP` 控制（默认 `0` 表示不限制，便于测试；生产可设为正整数）；单视频最长 40 分钟。
 - 营销型首页、Pro 付费能力预留、移动端适配。
 
 ## 本地开发
@@ -24,15 +24,15 @@
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate
+source .venv/Scripts/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 ```
 
-健康检查：
+健康检查（端口需与上面一致，且与 `frontend/vite.config.js` 中 `/api` 代理目标一致）：
 
 ```bash
-curl http://127.0.0.1:8000/api/health
+curl http://127.0.0.1:8001/api/health
 ```
 
 AI 视频总结需要配置 DeepSeek API Key：
