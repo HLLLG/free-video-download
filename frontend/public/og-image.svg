@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="60" y="80" width="1080" height="470" rx="32" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.2" stroke-width="1"/>
+  <!-- Download icon -->
+  <circle cx="600" cy="240" r="60" fill="#ffffff" fill-opacity="0.15"/>
+  <path d="M600 200v60m0 0l-20-20m20 20l20-20" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M570 270h60" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+  <!-- Title -->
+  <text x="600" y="360" text-anchor="middle" fill="#ffffff" font-family="system-ui,-apple-system,sans-serif" font-size="52" font-weight="bold">�Ƒ};�h</text>
+  <!-- Subtitle -->
+  <text x="600" y="410" text-anchor="middle" fill="#ffffff" fill-opacity="0.85" font-family="system-ui,-apple-system,sans-serif" font-size="28">M9} YouTube � B� � �� I 1000+ s�Ƒ</text>
+  <!-- Tags -->
+  <text x="600" y="465" text-anchor="middle" fill="#ffffff" fill-opacity="0.7" font-family="system-ui,-apple-system,sans-serif" font-size="22">��G} � AI z�;� � ��� � ��3WU</text>
+  <!-- Bottom badge -->
+  <rect x="480" y="490" width="240" height="40" rx="20" fill="#ffffff" fill-opacity="0.2"/>
+  <text x="600" y="517" text-anchor="middle" fill="#ffffff" font-family="system-ui,-apple-system,sans-serif" font-size="18" font-weight="600">�sM9( �</text>
+</svg>

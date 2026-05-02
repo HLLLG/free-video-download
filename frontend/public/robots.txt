@@ -1,0 +1,11 @@
+# 万能视频下载总结器 - robots.txt
+# 上线后请将 example.com 替换为实际域名
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /src/
+
+# Sitemap
+# TODO: 上线后取消注释并替换为实际域名
+# Sitemap: https://example.com/sitemap.xml

@@ -1,13 +1,174 @@
 <!doctype html>
 <html lang="zh-CN">
   <head>
+    <!-- 基础必需标签 -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="跨平台万能视频下载器，支持解析 1000+ 平台，选择清晰度后异步下载到本地。"
-    />
-    <title>Free Video Download - 万能视频下载器</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <!-- 核心 SEO 标签（TDK） -->
+    <title>万能视频下载总结器 - 免费在线下载 YouTube B站 抖音视频 | AI 智能总结</title>
+    <meta name="description" content="免费在线视频下载器，支持 YouTube、B站、抖音、TikTok、Instagram 等 1000+ 平台。粘贴链接一键下载高清原片，AI 智能总结生成视频要点大纲、时间戳字幕与思维导图，助你高效学习。立即免费使用！" />
+    <meta name="keywords" content="视频下载,在线视频下载器,YouTube下载,B站视频下载,抖音视频下载,TikTok下载,免费视频下载,AI视频总结,视频摘要,高清视频下载" />
+
+    <!-- 爬虫控制 -->
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <!-- TODO: 上线后替换为实际域名 -->
+    <link rel="canonical" href="https://example.com/" />
+
+    <!-- Open Graph 社交分享标签 -->
+    <meta property="og:title" content="万能视频下载总结器 - 免费下载 1000+ 平台视频 & AI 智能总结" />
+    <meta property="og:description" content="支持 YouTube、B站、抖音等 1000+ 平台免费视频下载，AI 智能总结生成要点大纲与思维导图。粘贴链接，一键下载高清原片。" />
+    <!-- TODO: 上线后替换为实际域名，建议使用 1200x630 的 PNG 图片 -->
+    <meta property="og:image" content="https://example.com/og-image.svg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://example.com/" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content="万能视频下载总结器" />
+
+    <!-- Twitter Card 标签 -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="万能视频下载总结器 - 免费下载 1000+ 平台视频 & AI 智能总结" />
+    <meta name="twitter:description" content="支持 YouTube、B站、抖音等 1000+ 平台免费视频下载，AI 智能总结生成要点大纲与思维导图。" />
+    <meta name="twitter:image" content="https://example.com/og-image.svg" />
+
+    <!-- Schema.org 基础标签 -->
+    <meta itemprop="name" content="万能视频下载总结器" />
+    <meta itemprop="description" content="支持 YouTube、B站、抖音等 1000+ 平台的免费在线视频下载与 AI 智能总结工具" />
+    <meta itemprop="image" content="https://example.com/og-image.svg" />
+
+    <!-- 其他优化标签 -->
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="theme-color" content="#6366f1" />
+    <meta name="author" content="万能视频下载总结器" />
+
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <!-- JSON-LD 结构化数据：WebApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "万能视频下载总结器",
+      "alternateName": "Free Video Download",
+      "url": "https://example.com/",
+      "description": "免费在线视频下载器，支持 YouTube、B站、抖音、TikTok、Instagram 等 1000+ 平台。粘贴链接一键下载高清原片，AI 智能总结生成视频要点大纲与思维导图。",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Web",
+      "browserRequirements": "Requires JavaScript",
+      "inLanguage": "zh-CN",
+      "offers": {
+        "@type": "AggregateOffer",
+        "lowPrice": "0",
+        "highPrice": "199",
+        "priceCurrency": "CNY",
+        "offerCount": "3",
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Free",
+            "price": "0",
+            "priceCurrency": "CNY",
+            "description": "单链接解析、720p/1080p 下载、30 分钟临时文件保留"
+          },
+          {
+            "@type": "Offer",
+            "name": "Pro 月付",
+            "price": "29",
+            "priceCurrency": "CNY",
+            "description": "4K/8K 超清、批量下载队列、字幕与 AI 总结",
+            "billingIncrement": "P1M"
+          },
+          {
+            "@type": "Offer",
+            "name": "Pro 年付",
+            "price": "199",
+            "priceCurrency": "CNY",
+            "description": "省 43%、更高并发额度、优先支持新平台",
+            "billingIncrement": "P1Y"
+          }
+        ]
+      },
+      "featureList": [
+        "支持 1000+ 视频平台下载",
+        "高清视频下载 (720p/1080p/4K)",
+        "AI 智能视频总结",
+        "视频思维导图自动生成",
+        "时间戳字幕提取",
+        "AI 视频内容追问对话",
+        "移动端友好适配"
+      ]
+    }
+    </script>
+
+    <!-- JSON-LD 结构化数据：FAQPage -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "为什么有些视频解析失败？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "部分平台、会员内容、私密视频或高画质资源需要登录 cookies。当前版本暂不支持用户上传 cookies，后续会作为 Pro 高级能力开放。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "支持哪些平台的视频下载？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "基于 yt-dlp 支持 YouTube、Bilibili（B站）、抖音、TikTok、X/Twitter、Instagram、Facebook 等 1000+ 视频平台的在线解析与下载。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "AI 视频总结是怎么工作的？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "解析视频后，系统自动提取平台原生字幕，通过 AI 大模型生成视频要点大纲、结构化摘要、带时间戳的字幕和思维导图，还支持基于视频内容的 AI 对话追问。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "本站会保存我的视频吗？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "不会长期保存。使用临时目录处理下载任务，任务过期后自动清理，文件保留 30 分钟。"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "可以下载任何视频吗？",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "请仅下载你有权获取和保存的内容。本站不绕过 DRM，不鼓励违反平台条款或版权规则的使用方式。"
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- JSON-LD 结构化数据：BreadcrumbList -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "首页",
+          "item": "https://example.com/"
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="app">
@@ -21,6 +182,7 @@
             <a href="#platforms">支持平台</a>
             <a href="#features">功能亮点</a>
             <a href="#pricing">价格</a>
+            <a href="#faq">常见问题</a>
             <button class="ghost-btn" type="button" data-scroll="#pricing">登录</button>
             <button class="pro-btn" type="button" data-scroll="#pricing">
               <i data-lucide="crown"></i>
@@ -271,18 +433,26 @@
           </div>
         </section>
 
-        <section class="section container faq">
+        <section class="section container faq" id="faq">
           <div class="section-title">
-            <p class="eyebrow">FAQ</p>
-            <h2>下载前请先了解这些限制</h2>
+            <p class="eyebrow">常见问题</p>
+            <h2>视频下载与 AI 总结常见问题</h2>
           </div>
           <details open>
             <summary>为什么有些视频解析失败？</summary>
-            <p>部分平台、会员内容、私密视频或高画质资源需要登录 cookies。MVP 暂不支持用户上传 cookies，后续会作为 Pro/高级能力开放。</p>
+            <p>部分平台、会员内容、私密视频或高画质资源需要登录 cookies。当前版本暂不支持用户上传 cookies，后续会作为 Pro 高级能力开放。</p>
+          </details>
+          <details>
+            <summary>支持哪些平台的视频下载？</summary>
+            <p>基于 yt-dlp 支持 YouTube、Bilibili（B站）、抖音、TikTok、X/Twitter、Instagram、Facebook 等 1000+ 视频平台的在线解析与下载。</p>
+          </details>
+          <details>
+            <summary>AI 视频总结是怎么工作的？</summary>
+            <p>解析视频后，系统自动提取平台原生字幕，通过 AI 大模型生成视频要点大纲、结构化摘要、带时间戳的字幕和思维导图，还支持基于视频内容的 AI 对话追问。</p>
           </details>
           <details>
             <summary>本站会保存我的视频吗？</summary>
-            <p>不会长期保存。MVP 使用临时目录处理下载任务，任务过期后自动清理。</p>
+            <p>不会长期保存。使用临时目录处理下载任务，任务过期后自动清理，文件保留 30 分钟。</p>
           </details>
           <details>
             <summary>可以下载任何视频吗？</summary>
@@ -301,14 +471,15 @@
         </div>
       </div>
 
-      <footer class="footer">
+      <footer class="footer" role="contentinfo">
         <div class="container">
-          <p>Free Video Download · yt-dlp 可视化封装</p>
+          <p><strong>万能视频下载总结器</strong> · 基于 yt-dlp 的免费在线视频下载与 AI 智能总结工具</p>
           <p>免责声明：所有内容版权归原作者所有，请仅下载你有权获取的内容，本站不长期缓存用户视频。</p>
+          <p class="footer-seo">支持平台：YouTube 视频下载 · B站视频下载 · 抖音视频下载 · TikTok 下载 · Instagram 下载 · Facebook 下载 · X/Twitter 下载 · 1000+ 更多平台</p>
         </div>
       </footer>
     </div>
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
