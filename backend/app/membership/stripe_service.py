@@ -50,6 +50,8 @@ def _value(obj, key: str, default=None):
 def _get_stripe_client() -> StripeClient:
     if not STRIPE_SECRET_KEY:
         raise MembershipError("后端尚未配置 STRIPE_SECRET_KEY，暂时无法创建支付订单。")
+    if not STRIPE_SECRET_KEY.startswith("sk_"):
+        raise MembershipError("STRIPE_SECRET_KEY 配置无效：请使用 sk_ 开头的 Stripe 服务端密钥。")
     return StripeClient(STRIPE_SECRET_KEY)
 
 
@@ -123,6 +125,14 @@ async def create_checkout_session(
             options={"idempotency_key": _normalize_intent_key(idempotency_key)},
         )
     except Exception as exc:
+        message = str(exc)
+        if "Invalid API Key provided" in message:
+            raise MembershipError("Stripe 密钥无效：请检查 STRIPE_SECRET_KEY 是否填写正确。") from exc
+        if "payment" in message and "recurring price" in message:
+            raise MembershipError(
+                "当前 Price 是订阅型（Recurring），但系统使用一次性支付（payment）模式。"
+                "请在 Stripe 创建 one-time Price 后再填写 STRIPE_PRICE_MONTHLY / STRIPE_PRICE_YEARLY。"
+            ) from exc
         raise MembershipError(f"创建支付订单失败：{str(exc)[:240]}") from exc
 
 

@@ -697,14 +697,46 @@ function pollSummary(elements, taskId, { mode = "manual" } = {}) {
   }, 1000);
 }
 
+function shouldShowUpgradeAction(message) {
+  const text = String(message || "");
+  return /每天最多总结|升级\s*pro|免费版/.test(text.toLowerCase());
+}
+
+function isDailyLimitMessage(message) {
+  const text = String(message || "");
+  return /每天最多总结|请明天再试/.test(text);
+}
+
+function bindNoticeActions(elements, message) {
+  const upgradeButton = elements.notice?.querySelector('[data-summary-action="upgrade-pro"]');
+  if (!upgradeButton) return;
+  upgradeButton.addEventListener("click", () => {
+    if (typeof elements.openProModal === "function") {
+      elements.openProModal(isDailyLimitMessage(message) ? "summary-limit" : "default");
+    }
+  });
+}
+
 function reportSummaryError(elements, message, { mode }) {
   const safe = escapeHtml(message || "AI 总结失败，请稍后重试。");
+  const showUpgradeAction =
+    shouldShowUpgradeAction(message) && typeof elements.openProModal === "function";
+  const upgradeAction = showUpgradeAction
+    ? `
+      <div class="summary-notice-actions">
+        <button class="pro-btn small" type="button" data-summary-action="upgrade-pro">
+          <i data-lucide="crown"></i><span>升级 Pro 继续总结</span>
+        </button>
+      </div>
+    `
+    : "";
   showNotice(
     elements,
     `<div><strong>AI 总结暂未完成</strong><p style="margin:6px 0 0;">${safe}</p>` +
-      `<p style="margin:8px 0 0;font-size:12px;opacity:.85;">你可以点击左侧的「重新生成总结」按钮再试一次。</p></div>`,
+      `<p style="margin:8px 0 0;font-size:12px;opacity:.85;">你可以点击左侧的「重新生成总结」按钮再试一次。</p>${upgradeAction}</div>`,
     { type: "error" },
   );
+  bindNoticeActions(elements, message);
   if (elements.track) elements.track.classList.add("hidden");
   if (elements.pct) elements.pct.classList.add("hidden");
   elements.title.textContent = "AI 总结未完成";

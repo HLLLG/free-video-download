@@ -2,16 +2,25 @@ import "./styles.css";
 import { initSummaryFeature, resetSummary, startSummaryAuto } from "./summary.js";
 
 const MEMBERSHIP_STORAGE_KEY = "fvd.membership";
+const AUTH_STORAGE_KEY = "fvd.auth";
 const DEFAULT_FREE_SUMMARY_MAX_DURATION_SECONDS = 40 * 60;
 const DEFAULT_PRO_SUMMARY_MAX_DURATION_SECONDS = 120 * 60;
+const DEFAULT_AUTH_MIN_PASSWORD_LENGTH = 8;
+const PRO_MONTHLY_PRICE = 9.9;
+const PRO_YEARLY_PRICE = 99;
 
 const state = {
   info: null,
   selectedQuality: "1080p",
   pollingTimer: null,
   currentTaskId: null,
-  membership: loadStoredMembership(),
+  auth: loadStoredAuth(),
+  membership: null,
 };
+state.membership = state.auth.loggedIn ? loadStoredMembership() : createFreeMembershipState();
+if (!state.auth.loggedIn) {
+  window.localStorage.removeItem(MEMBERSHIP_STORAGE_KEY);
+}
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -36,9 +45,35 @@ const els = {
   etaText: $("#etaText"),
   fileLink: $("#fileLink"),
   cancelBtn: $("#cancelBtn"),
+  authModal: $("#authModal"),
+  closeAuthModal: $("#closeAuthModal"),
+  authEntryBtn: $("#authEntryBtn"),
+  authUserWrap: $("#authUserWrap"),
+  authUserEmail: $("#authUserEmail"),
+  logoutBtn: $("#logoutBtn"),
+  authStatus: $("#authStatus"),
+  authTabs: Array.from(document.querySelectorAll("[data-auth-tab]")),
+  loginForm: $("#loginForm"),
+  loginEmail: $("#loginEmail"),
+  loginPassword: $("#loginPassword"),
+  registerForm: $("#registerForm"),
+  registerEmail: $("#registerEmail"),
+  registerPassword: $("#registerPassword"),
+  registerMembershipKey: $("#registerMembershipKey"),
   proModal: $("#proModal"),
+  proModalEyebrow: $("#proModalEyebrow"),
+  proModalTitle: $("#proModalTitle"),
+  proModalDesc: $("#proModalDesc"),
+  proYearlySave: $("#proYearlySave"),
   closeModal: $("#closeModal"),
   membershipBadge: $("#membershipBadge"),
+  membershipMenuWrap: $("#membershipMenuWrap"),
+  membershipDropdown: $("#membershipDropdown"),
+  membershipMenuViewBtn: $("#membershipMenuViewBtn"),
+  membershipMenuCopyBtn: $("#membershipMenuCopyBtn"),
+  membershipMenuLogoutBtn: $("#membershipMenuLogoutBtn"),
+  upgradeProNavBtn: $("#upgradeProNavBtn"),
+  restoreMembershipNavBtn: $("#restoreMembershipNavBtn"),
   membershipPanel: $("#membershipPanel"),
   membershipTitle: $("#membershipTitle"),
   membershipMeta: $("#membershipMeta"),
@@ -134,31 +169,61 @@ function createCheckoutIntentKey(planType) {
   return `checkout_${planType}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
+function createFreeMembershipState() {
+  return {
+    hasMembership: false,
+    isPro: false,
+    email: null,
+    membershipKey: "",
+    proExpiresAt: null,
+    summaryMaxDurationSeconds: DEFAULT_FREE_SUMMARY_MAX_DURATION_SECONDS,
+  };
+}
+
+function createLoggedOutAuthState() {
+  return {
+    loggedIn: false,
+    email: null,
+    authToken: "",
+    authExpiresAt: null,
+  };
+}
+
 function loadStoredMembership() {
   try {
     const raw = window.localStorage.getItem(MEMBERSHIP_STORAGE_KEY);
     if (!raw) {
-      return {
-        hasMembership: false,
-        isPro: false,
-        email: null,
-        membershipKey: "",
-        proExpiresAt: null,
-        summaryMaxDurationSeconds: DEFAULT_FREE_SUMMARY_MAX_DURATION_SECONDS,
-      };
+      return createFreeMembershipState();
     }
     const parsed = JSON.parse(raw);
     return normalizeMembership(parsed);
   } catch {
-    return {
-      hasMembership: false,
-      isPro: false,
-      email: null,
-      membershipKey: "",
-      proExpiresAt: null,
-      summaryMaxDurationSeconds: DEFAULT_FREE_SUMMARY_MAX_DURATION_SECONDS,
-    };
+    return createFreeMembershipState();
   }
+}
+
+function loadStoredAuth() {
+  try {
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return createLoggedOutAuthState();
+    const parsed = JSON.parse(raw);
+    return normalizeAuth(parsed);
+  } catch {
+    return createLoggedOutAuthState();
+  }
+}
+
+function normalizeAuth(data = {}, existing = {}) {
+  const email = String(data.email || existing.email || "").trim() || null;
+  const authToken = String(data.authToken || data.auth_token || existing.authToken || "").trim();
+  const authExpiresAt = data.authExpiresAt || data.auth_expires_at || existing.authExpiresAt || null;
+  const loggedIn = Boolean((data.loggedIn ?? data.logged_in) ?? (email && authToken));
+  return {
+    loggedIn,
+    email,
+    authToken: loggedIn ? authToken : "",
+    authExpiresAt: loggedIn ? authExpiresAt : null,
+  };
 }
 
 function normalizeMembership(data = {}, existing = {}) {
@@ -184,11 +249,30 @@ function normalizeMembership(data = {}, existing = {}) {
 }
 
 function persistMembership(membership) {
-  if (!membership?.membershipKey && !membership?.email) {
+  if (!state.auth.loggedIn || (!membership?.membershipKey && !membership?.email && !membership?.hasMembership)) {
     window.localStorage.removeItem(MEMBERSHIP_STORAGE_KEY);
     return;
   }
   window.localStorage.setItem(MEMBERSHIP_STORAGE_KEY, JSON.stringify(membership));
+}
+
+function persistAuth(auth) {
+  if (!auth?.loggedIn || !auth?.authToken || !auth?.email) {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    return;
+  }
+  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
+}
+
+function updateAuthState(data = {}, { persist = true } = {}) {
+  state.auth = normalizeAuth(data, state.auth);
+  if (persist) {
+    persistAuth(state.auth);
+  }
+  if (!state.auth.loggedIn) {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  }
+  renderAuthState();
 }
 
 function updateMembershipState(data = {}, { persist = true } = {}) {
@@ -206,14 +290,7 @@ function updateMembershipState(data = {}, { persist = true } = {}) {
 }
 
 function clearMembershipState() {
-  state.membership = normalizeMembership({
-    has_membership: false,
-    is_pro: false,
-    email: null,
-    membership_key: "",
-    pro_expires_at: null,
-    summary_max_duration_seconds: DEFAULT_FREE_SUMMARY_MAX_DURATION_SECONDS,
-  });
+  state.membership = createFreeMembershipState();
   window.localStorage.removeItem(MEMBERSHIP_STORAGE_KEY);
   renderMembershipState();
   if (state.info?.qualities) {
@@ -221,8 +298,56 @@ function clearMembershipState() {
   }
 }
 
+function clearAuthState({ clearMembership = true } = {}) {
+  state.auth = createLoggedOutAuthState();
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  renderAuthState();
+  if (clearMembership) {
+    clearMembershipState();
+  }
+}
+
+function renderAuthState() {
+  const auth = state.auth;
+  const isPro = Boolean(state.membership?.isPro);
+  if (els.authEntryBtn) {
+    els.authEntryBtn.classList.toggle("hidden", auth.loggedIn);
+  }
+  if (els.authUserWrap) {
+    els.authUserWrap.classList.toggle("hidden", !auth.loggedIn);
+  }
+  if (els.authUserEmail) {
+    els.authUserEmail.textContent = auth.email || "-";
+  }
+  if (els.logoutBtn) {
+    els.logoutBtn.classList.toggle("hidden", !auth.loggedIn || isPro);
+  }
+  if (els.restoreMembershipNavBtn) {
+    els.restoreMembershipNavBtn.classList.toggle("hidden", !auth.loggedIn || isPro);
+  }
+  if (els.upgradeProNavBtn) {
+    els.upgradeProNavBtn.classList.toggle("hidden", !auth.loggedIn || isPro);
+  }
+  if (!isPro) {
+    closeMembershipDropdown();
+  }
+  refreshIcons();
+}
+
 function renderMembershipState() {
   const membership = state.membership;
+  if (els.restoreMembershipNavBtn) {
+    els.restoreMembershipNavBtn.classList.toggle("hidden", !state.auth.loggedIn || membership.isPro);
+  }
+  if (els.upgradeProNavBtn) {
+    els.upgradeProNavBtn.classList.toggle("hidden", !state.auth.loggedIn || membership.isPro);
+  }
+  if (els.membershipMenuCopyBtn) {
+    els.membershipMenuCopyBtn.disabled = !membership.membershipKey;
+  }
+  if (!membership.isPro) {
+    closeMembershipDropdown();
+  }
   if (els.membershipBadge) {
     els.membershipBadge.className = `membership-badge ${
       membership.isPro ? "pro" : membership.hasMembership ? "expired" : "free"
@@ -237,7 +362,7 @@ function renderMembershipState() {
   }
 
   if (els.membershipPanel) {
-    if (!membership.hasMembership) {
+    if (!state.auth.loggedIn || !membership.hasMembership) {
       els.membershipPanel.classList.add("hidden");
     } else {
       els.membershipPanel.classList.remove("hidden");
@@ -257,6 +382,11 @@ function renderMembershipState() {
 
   els.buyButtons.forEach((button) => {
     const plan = button.dataset.buyPlan;
+    if (!state.auth.loggedIn) {
+      button.disabled = false;
+      button.querySelector("span")?.replaceChildren(document.createTextNode("登录后购买"));
+      return;
+    }
     if (membership.isPro) {
       button.disabled = false;
       button.querySelector("span")?.replaceChildren(
@@ -274,10 +404,31 @@ function renderMembershipState() {
   refreshIcons();
 }
 
+function openMembershipDropdown() {
+  if (!state.auth.loggedIn || !state.membership.isPro) return;
+  els.membershipDropdown?.classList.remove("hidden");
+}
+
+function closeMembershipDropdown() {
+  els.membershipDropdown?.classList.add("hidden");
+}
+
+function toggleMembershipDropdown() {
+  if (!state.auth.loggedIn || !state.membership.isPro) return;
+  if (els.membershipDropdown?.classList.contains("hidden")) {
+    openMembershipDropdown();
+  } else {
+    closeMembershipDropdown();
+  }
+}
+
 function buildRequestHeaders(extraHeaders = {}, includeJson = false) {
   const headers = new Headers(extraHeaders);
   if (includeJson && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
+  }
+  if (state.auth?.authToken && !headers.has("X-Auth-Token")) {
+    headers.set("X-Auth-Token", state.auth.authToken);
   }
   if (state.membership?.membershipKey && !headers.has("X-Membership-Key")) {
     headers.set("X-Membership-Key", state.membership.membershipKey);
@@ -298,26 +449,93 @@ async function requestJson(url, options = {}) {
   return data;
 }
 
-async function refreshMembershipStatus({ silent = false } = {}) {
-  if (!state.membership?.membershipKey) {
-    renderMembershipState();
+async function refreshAuthSession({ silent = false } = {}) {
+  if (!state.auth?.authToken) {
+    renderAuthState();
     return;
   }
   try {
-    const data = await requestJson("/api/membership/status");
-    if (!data.has_membership) {
-      clearMembershipState();
-      return;
-    }
+    const data = await requestJson("/api/auth/me");
+    updateAuthState(data);
     updateMembershipState(data);
   } catch (error) {
+    clearAuthState();
     if (!silent) {
       showStatus(error.message, "error");
     }
   }
 }
 
-function openProModal() {
+function showAuthStatus(message, type = "info") {
+  els.authStatus.textContent = message;
+  els.authStatus.classList.remove("hidden", "error");
+  if (type === "error") {
+    els.authStatus.classList.add("error");
+  }
+}
+
+function switchAuthTab(tab) {
+  const target = tab === "register" ? "register" : "login";
+  els.authTabs.forEach((button) => button.classList.toggle("active", button.dataset.authTab === target));
+  els.loginForm.classList.toggle("hidden", target !== "login");
+  els.registerForm.classList.toggle("hidden", target !== "register");
+  els.authStatus.classList.add("hidden");
+  els.authStatus.textContent = "";
+  els.authStatus.classList.remove("error");
+}
+
+function openAuthModal(tab = "login") {
+  switchAuthTab(tab);
+  if (state.auth?.email) {
+    els.loginEmail.value = state.auth.email;
+    els.registerEmail.value = state.auth.email;
+  }
+  els.authModal.classList.remove("hidden");
+}
+
+function closeAuthModal() {
+  els.authModal.classList.add("hidden");
+}
+
+function applyProModalCopy(context = "default") {
+  const copy = context === "summary-limit"
+    ? {
+        eyebrow: "今日免费额度已用完",
+        title: "升级 Pro，立即继续 AI 总结",
+        desc: "Free 用户每天最多总结 3 个视频。升级 Pro 后可不限次数总结，并支持最长 120 分钟视频总结。",
+      }
+    : {
+        eyebrow: "Pro 专享",
+        title: "选择方案，立即解锁 Pro 权益",
+        desc: "开通后立即生效。支付成功后系统会返回会员密钥，可在新设备或新浏览器恢复会员。",
+      };
+  if (els.proModalEyebrow) els.proModalEyebrow.textContent = copy.eyebrow;
+  if (els.proModalTitle) els.proModalTitle.textContent = copy.title;
+  if (els.proModalDesc) els.proModalDesc.textContent = copy.desc;
+}
+
+function renderYearlySavings() {
+  if (!els.proYearlySave) return;
+  const yearlyAsMonthly = PRO_MONTHLY_PRICE * 12;
+  if (!Number.isFinite(yearlyAsMonthly) || yearlyAsMonthly <= 0 || PRO_YEARLY_PRICE <= 0) {
+    els.proYearlySave.textContent = "年卡长期更划算";
+    return;
+  }
+  const saveRate = Math.max(0, (1 - PRO_YEARLY_PRICE / yearlyAsMonthly) * 100);
+  els.proYearlySave.textContent = `相比月卡省约 ${Math.round(saveRate)}%`;
+}
+
+function openProModal(context = "default") {
+  if (!state.auth.loggedIn) {
+    openAuthModal("login");
+    if (context === "summary-limit") {
+      showStatus("今日免费总结次数已用完，请先登录后升级 Pro 继续总结。", "error");
+    } else {
+      showStatus("请先登录或注册账号，再升级 Pro。", "error");
+    }
+    return;
+  }
+  applyProModalCopy(context);
   els.proModal.classList.remove("hidden");
 }
 
@@ -326,10 +544,17 @@ function closeProModal() {
 }
 
 function openRestoreModal() {
+  if (!state.auth.loggedIn) {
+    openAuthModal("login");
+    showStatus("请先登录账号，再恢复会员。", "error");
+    return;
+  }
   els.restoreStatus.classList.add("hidden");
   els.restoreStatus.textContent = "";
   els.restoreStatus.classList.remove("error");
-  if (state.membership?.email) {
+  if (state.auth?.email) {
+    els.restoreEmail.value = state.auth.email;
+  } else if (state.membership?.email) {
     els.restoreEmail.value = state.membership.email;
   }
   if (state.membership?.membershipKey) {
@@ -592,7 +817,83 @@ function pollProgress(taskId) {
   }, 1000);
 }
 
+function applyAuthPayload(data) {
+  updateAuthState(data);
+  updateMembershipState(data);
+}
+
+async function handleLoginSubmit(event) {
+  event.preventDefault();
+  const email = els.loginEmail.value.trim();
+  const password = els.loginPassword.value;
+  if (!email || !password) {
+    showAuthStatus("请填写邮箱和密码。", "error");
+    return;
+  }
+  showAuthStatus("正在登录...");
+  try {
+    const data = await requestJson("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+    applyAuthPayload(data);
+    closeAuthModal();
+    showStatus("登录成功，已可购买 Pro 会员。");
+  } catch (error) {
+    showAuthStatus(error.message, "error");
+  }
+}
+
+async function handleRegisterSubmit(event) {
+  event.preventDefault();
+  const email = els.registerEmail.value.trim();
+  const password = els.registerPassword.value;
+  const membershipKey = els.registerMembershipKey.value.trim();
+  if (!email || !password) {
+    showAuthStatus("请填写邮箱和密码。", "error");
+    return;
+  }
+  if (password.length < DEFAULT_AUTH_MIN_PASSWORD_LENGTH) {
+    showAuthStatus(`密码长度至少 ${DEFAULT_AUTH_MIN_PASSWORD_LENGTH} 位。`, "error");
+    return;
+  }
+  showAuthStatus("正在注册账号...");
+  try {
+    const data = await requestJson("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        password,
+        membership_key: membershipKey || null,
+      }),
+    });
+    applyAuthPayload(data);
+    closeAuthModal();
+    showStatus("注册成功，已自动登录。");
+  } catch (error) {
+    showAuthStatus(error.message, "error");
+  }
+}
+
+async function handleLogout() {
+  try {
+    await requestJson("/api/auth/logout", { method: "POST" });
+  } catch (_) {
+    // Ignore logout API failures and clear local session anyway.
+  } finally {
+    clearAuthState();
+    closeRestoreModal();
+    closeProModal();
+    showStatus("你已退出登录，当前为 Free 模式。");
+  }
+}
+
 async function startCheckout(planType) {
+  if (!state.auth.loggedIn) {
+    openAuthModal("login");
+    showStatus("请先登录或注册账号，再购买会员。", "error");
+    return;
+  }
   const button = els.buyButtons.find((item) => item.dataset.buyPlan === planType);
   const intentKey = createCheckoutIntentKey(planType);
   els.buyButtons.forEach((item) => {
@@ -620,10 +921,20 @@ async function startCheckout(planType) {
 
 async function handleRestoreSubmit(event) {
   event.preventDefault();
+  if (!state.auth.loggedIn) {
+    closeRestoreModal();
+    openAuthModal("login");
+    showStatus("请先登录账号，再恢复会员。", "error");
+    return;
+  }
   const email = els.restoreEmail.value.trim();
   const membershipKey = els.restoreKey.value.trim();
   if (!email || !membershipKey) {
     showRestoreStatus("请填写邮箱和会员密钥。", "error");
+    return;
+  }
+  if (state.auth.email && email.toLowerCase() !== state.auth.email.toLowerCase()) {
+    showRestoreStatus("恢复邮箱需与当前登录邮箱一致。", "error");
     return;
   }
   showRestoreStatus("正在校验会员信息...");
@@ -648,6 +959,7 @@ async function copyMembershipKey() {
   if (!state.membership?.membershipKey) return;
   try {
     await navigator.clipboard.writeText(state.membership.membershipKey);
+    closeMembershipDropdown();
     showStatus("会员密钥已复制，请妥善保存。");
   } catch {
     showStatus("复制失败，请手动选中会员密钥复制。", "error");
@@ -670,7 +982,11 @@ async function handleCheckoutResult() {
   showStatus("支付成功，正在确认会员状态...");
   try {
     const data = await requestJson(`/api/stripe/checkout-success?session_id=${encodeURIComponent(sessionId)}`);
-    updateMembershipState(data);
+    if (data.logged_in && data.auth_token) {
+      applyAuthPayload(data);
+    } else {
+      updateMembershipState(data);
+    }
     els.membershipPanel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     showStatus(
       `支付成功，Pro 已开通至 ${formatExpiry(data.pro_expires_at)}。会员密钥已自动保存，请同时自行备份。`,
@@ -689,11 +1005,25 @@ document.addEventListener("click", (event) => {
     closeProModal();
     document.querySelector(selector)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+  if (els.membershipMenuWrap && !els.membershipMenuWrap.contains(event.target)) {
+    closeMembershipDropdown();
+  }
 });
 
 els.parseBtn.addEventListener("click", parseVideo);
 els.downloadBtn.addEventListener("click", startDownload);
 els.cancelBtn.addEventListener("click", cancelDownload);
+els.authEntryBtn?.addEventListener("click", () => openAuthModal("login"));
+els.closeAuthModal?.addEventListener("click", closeAuthModal);
+els.authModal?.addEventListener("click", (event) => {
+  if (event.target === els.authModal) closeAuthModal();
+});
+els.authTabs.forEach((button) => {
+  button.addEventListener("click", () => switchAuthTab(button.dataset.authTab));
+});
+els.loginForm?.addEventListener("submit", handleLoginSubmit);
+els.registerForm?.addEventListener("submit", handleRegisterSubmit);
+els.logoutBtn?.addEventListener("click", handleLogout);
 els.closeModal.addEventListener("click", closeProModal);
 els.proModal.addEventListener("click", (event) => {
   if (event.target === els.proModal) closeProModal();
@@ -704,6 +1034,7 @@ els.restoreModal.addEventListener("click", (event) => {
 els.closeRestoreModal.addEventListener("click", closeRestoreModal);
 els.restoreForm.addEventListener("submit", handleRestoreSubmit);
 els.copyMembershipKeyBtn.addEventListener("click", copyMembershipKey);
+els.upgradeProNavBtn?.addEventListener("click", openProModal);
 els.url.addEventListener("keydown", (event) => {
   if (event.key === "Enter") parseVideo();
 });
@@ -714,11 +1045,28 @@ els.openRestoreButtons.forEach((button) => {
   button.addEventListener("click", openRestoreModal);
 });
 els.membershipBadge?.addEventListener("click", () => {
+  if (!state.auth.loggedIn) {
+    openAuthModal("login");
+    return;
+  }
+  if (state.membership.isPro) {
+    toggleMembershipDropdown();
+    return;
+  }
   if (state.membership.hasMembership) {
     els.membershipPanel?.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
   document.querySelector("#pricing")?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+els.membershipMenuViewBtn?.addEventListener("click", () => {
+  closeMembershipDropdown();
+  els.membershipPanel?.scrollIntoView({ behavior: "smooth", block: "center" });
+});
+els.membershipMenuCopyBtn?.addEventListener("click", copyMembershipKey);
+els.membershipMenuLogoutBtn?.addEventListener("click", async () => {
+  closeMembershipDropdown();
+  await handleLogout();
 });
 
 if (document.readyState === "loading") {
@@ -727,8 +1075,11 @@ if (document.readyState === "loading") {
   refreshIcons();
 }
 
+renderYearlySavings();
+applyProModalCopy("default");
+renderAuthState();
 renderMembershipState();
-void refreshMembershipStatus({ silent: true });
+void refreshAuthSession({ silent: true });
 void handleCheckoutResult();
 
 initSummaryFeature(state, {
@@ -736,4 +1087,5 @@ initSummaryFeature(state, {
   showStatus,
   refreshIcons,
   normalizeVideoUrl,
+  openProModal,
 });

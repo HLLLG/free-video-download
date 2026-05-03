@@ -6,6 +6,7 @@ from urllib.parse import urlparse, urlunparse
 
 import yt_dlp
 
+from . import bilibili as bilibili_extractor
 from . import douyin as douyin_extractor
 from .config import (
     DEFAULT_FORMAT,
@@ -406,10 +407,73 @@ def _parse_douyin(url: str) -> dict:
     }
 
 
+def _build_bilibili_qualities(info: bilibili_extractor.BilibiliVideoInfo) -> list[dict]:
+    """把 B 站 API 返回的流信息映射成前端可消费的质量选项。"""
+    options: list[dict] = []
+    for key in ["best", "1080p", "720p", "480p", "audio", "4k"]:
+        preset = QUALITY_SELECTORS[key]
+        try:
+            if key != "audio":
+                bilibili_extractor.select_stream(info, key)
+            elif bilibili_extractor.select_stream(info, "audio"):
+                pass
+        except Exception:
+            if key not in {"best", "audio"}:
+                continue
+            # best/audio 至少尝试保留一个兜底，后续由下载阶段给出明确错误。
+        size_bytes = bilibili_extractor.estimate_quality_size(info, key)
+        options.append(
+            {
+                "key": key,
+                "label": preset["label"],
+                "description": preset["description"],
+                "pro": preset["pro"],
+                "size_bytes": int(size_bytes) if size_bytes else None,
+                "size_text": _format_filesize(size_bytes),
+            }
+        )
+    return options
+
+
+def _parse_bilibili(url: str) -> dict:
+    try:
+        info = bilibili_extractor.fetch_video_info(url)
+    except Exception as exc:
+        raise DownloadError(f"解析失败：{_safe_error(exc)}") from exc
+
+    duration = int(info.duration_seconds) if info.duration_seconds else None
+    if duration and duration > MAX_DURATION_SECONDS:
+        raise DownloadError("视频时长超过 MVP 限制，请换一个较短的视频链接")
+
+    qualities = _build_bilibili_qualities(info)
+    if not qualities:
+        qualities = build_quality_options([], duration)
+
+    return {
+        "title": info.title or "未命名视频",
+        "uploader": info.uploader,
+        "duration": duration,
+        "duration_text": _format_duration(duration),
+        "thumbnail": info.cover_url,
+        "platform": PLATFORM_LABELS["bilibili"],
+        "platform_key": "bilibili",
+        "webpage_url": info.webpage_url or url,
+        "view_count": info.view_count,
+        "like_count": info.like_count,
+        "qualities": qualities,
+    }
+
+
 def parse_video_info(url: str) -> dict:
     url = validate_url(url)
     if douyin_extractor.is_douyin_url(url):
         return _parse_douyin(url)
+    if bilibili_extractor.is_bilibili_url(url):
+        try:
+            return _parse_bilibili(url)
+        except DownloadError:
+            # B 站优先走 API 方案；失败则回退到 yt-dlp，兼容更多特殊链接类型。
+            pass
     try:
         with yt_dlp.YoutubeDL({**_base_ydl_opts(), "skip_download": True}) as ydl:
             info = ydl.sanitize_info(ydl.extract_info(url, download=False))
@@ -615,6 +679,228 @@ def _run_ffmpeg_extract_audio(src: Path, dst: Path) -> None:
         raise DownloadError(f"音频提取失败：{result.stderr.strip()[:200] or '未知错误'}")
 
 
+def _run_ffmpeg_merge_av(video_src: Path, audio_src: Path, dst: Path) -> None:
+    """把 B 站 DASH 视频流 + 音频流合并成 mp4。"""
+    import subprocess
+
+    creationflags = 0
+    try:
+        creationflags = subprocess.CREATE_NO_WINDOW  # type: ignore[attr-defined]
+    except AttributeError:
+        pass
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        str(video_src),
+        "-i",
+        str(audio_src),
+        "-c:v",
+        "copy",
+        "-c:a",
+        "copy",
+        str(dst),
+    ]
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        creationflags=creationflags,
+    )
+    if result.returncode != 0:
+        raise DownloadError(f"音视频合并失败：{result.stderr.strip()[:200] or '未知错误'}")
+
+
+def _download_bilibili_sync(task: DownloadTask, url: str, quality: str) -> None:
+    """B 站解析/下载走公开 API 兜底，绕开网页 412 风控页。"""
+    workdir = Path(task.workdir or TEMP_ROOT / task.task_id)
+    workdir.mkdir(parents=True, exist_ok=True)
+
+    task.status = "running"
+    task.stage = "preparing"
+    task.stage_text = "正在解析视频"
+    task.touch()
+
+    try:
+        info = bilibili_extractor.fetch_video_info(url)
+    except Exception as exc:
+        raise DownloadError(f"解析失败：{_safe_error(exc)}") from exc
+
+    duration = int(info.duration_seconds) if info.duration_seconds else None
+    if duration and duration > MAX_DURATION_SECONDS:
+        raise DownloadError("视频时长超过 MVP 限制，请换一个较短的视频链接")
+
+    try:
+        selected = bilibili_extractor.select_stream(info, quality)
+    except Exception as exc:
+        raise DownloadError(f"未找到可用画质：{_safe_error(exc)}") from exc
+
+    task.title = info.title or "Bilibili 视频"
+    task.stage = "downloading"
+    task.stage_text = "正在下载"
+    task.pct = 0
+    task.touch()
+
+    progress_state: dict[str, dict[str, float]] = {}
+
+    def on_progress(channel: str):
+        def _update(downloaded: int, total: int | None, speed: float) -> None:
+            if task.cancelled:
+                raise DownloadCancelled()
+            progress_state[channel] = {
+                "downloaded": float(downloaded or 0),
+                "total": float(total or 0),
+                "speed": float(speed or 0),
+            }
+            total_sum = sum(item["total"] for item in progress_state.values())
+            done_sum = sum(item["downloaded"] for item in progress_state.values())
+            if total_sum > 0:
+                pct = round(done_sum / total_sum * 100, 1)
+                task.pct = min(pct, 99)
+            else:
+                task.pct = None
+            speed_sum = sum(item["speed"] for item in progress_state.values())
+            task.speed = speed_sum or None
+            if total_sum > 0 and speed_sum > 0:
+                task.eta = max(total_sum - done_sum, 0) / speed_sum
+            else:
+                task.eta = None
+            task.touch()
+
+        return _update
+
+    def is_cancelled() -> bool:
+        return bool(task.cancelled)
+
+    # 仅音频：优先下载纯音频流，再转 mp3。
+    if quality == "audio":
+        source_path = workdir / "audio_source.m4a"
+        if selected.audio:
+            try:
+                bilibili_extractor.download_track(
+                    selected.audio,
+                    source_path,
+                    on_progress=on_progress("audio"),
+                    is_cancelled=is_cancelled,
+                )
+            except Exception as exc:
+                message = _safe_error(exc)
+                if "cancelled" in message.lower():
+                    raise DownloadCancelled() from exc
+                raise DownloadError(f"B 站音频下载失败：{message}") from exc
+        elif selected.progressive:
+            source_path = workdir / "audio_source.mp4"
+            try:
+                bilibili_extractor.download_track(
+                    selected.progressive,
+                    source_path,
+                    on_progress=on_progress("video"),
+                    is_cancelled=is_cancelled,
+                )
+            except Exception as exc:
+                message = _safe_error(exc)
+                if "cancelled" in message.lower():
+                    raise DownloadCancelled() from exc
+                raise DownloadError(f"B 站视频下载失败：{message}") from exc
+        else:
+            raise DownloadError("未找到可提取音频的资源")
+
+        if task.cancelled:
+            raise DownloadCancelled()
+
+        task.stage = "postprocessing"
+        task.stage_text = "正在提取音频"
+        task.pct = 99
+        task.speed = None
+        task.eta = None
+        task.touch()
+
+        final_audio = workdir / bilibili_extractor.safe_filename(info.title, "mp3")
+        _run_ffmpeg_extract_audio(source_path, final_audio)
+        task.file_path = str(final_audio)
+    else:
+        # 视频下载：优先 DASH（视频+音频），没有音频流时回退单流。
+        if selected.progressive:
+            final_video = workdir / bilibili_extractor.safe_filename(info.title, "mp4")
+            try:
+                bilibili_extractor.download_track(
+                    selected.progressive,
+                    final_video,
+                    on_progress=on_progress("video"),
+                    is_cancelled=is_cancelled,
+                )
+            except Exception as exc:
+                message = _safe_error(exc)
+                if "cancelled" in message.lower():
+                    raise DownloadCancelled() from exc
+                raise DownloadError(f"B 站视频下载失败：{message}") from exc
+            task.file_path = str(final_video)
+        elif selected.video:
+            video_part = workdir / "video_part.m4s"
+            try:
+                bilibili_extractor.download_track(
+                    selected.video,
+                    video_part,
+                    on_progress=on_progress("video"),
+                    is_cancelled=is_cancelled,
+                )
+            except Exception as exc:
+                message = _safe_error(exc)
+                if "cancelled" in message.lower():
+                    raise DownloadCancelled() from exc
+                raise DownloadError(f"B 站视频流下载失败：{message}") from exc
+
+            if selected.audio:
+                audio_part = workdir / "audio_part.m4s"
+                try:
+                    bilibili_extractor.download_track(
+                        selected.audio,
+                        audio_part,
+                        on_progress=on_progress("audio"),
+                        is_cancelled=is_cancelled,
+                    )
+                except Exception as exc:
+                    message = _safe_error(exc)
+                    if "cancelled" in message.lower():
+                        raise DownloadCancelled() from exc
+                    raise DownloadError(f"B 站音频流下载失败：{message}") from exc
+
+                if task.cancelled:
+                    raise DownloadCancelled()
+                task.stage = "postprocessing"
+                task.stage_text = "正在合并音视频"
+                task.pct = 99
+                task.speed = None
+                task.eta = None
+                task.touch()
+
+                final_video = workdir / bilibili_extractor.safe_filename(info.title, "mp4")
+                _run_ffmpeg_merge_av(video_part, audio_part, final_video)
+                task.file_path = str(final_video)
+            else:
+                final_video = workdir / bilibili_extractor.safe_filename(info.title, "mp4")
+                video_part.replace(final_video)
+                task.file_path = str(final_video)
+        else:
+            raise DownloadError("未找到可下载视频流")
+
+    if task.cancelled:
+        raise DownloadCancelled()
+
+    final_path = Path(task.file_path or "")
+    if not final_path.exists():
+        raise DownloadError("下载完成但未找到输出文件")
+    task.pct = 100
+    task.status = "done"
+    task.stage = "done"
+    task.stage_text = "下载完成"
+    task.speed = None
+    task.eta = None
+    task.touch()
+
+
 def _download_douyin_sync(task: DownloadTask, url: str, quality: str) -> None:
     """抖音专用下载路径，绕开 yt-dlp 的 cookie 校验。"""
     workdir = Path(task.workdir or TEMP_ROOT / task.task_id)
@@ -713,6 +999,15 @@ def _download_sync(task: DownloadTask, url: str, quality: str) -> None:
     if douyin_extractor.is_douyin_url(url):
         _download_douyin_sync(task, url, quality)
         return
+    if bilibili_extractor.is_bilibili_url(url):
+        try:
+            _download_bilibili_sync(task, url, quality)
+            return
+        except DownloadCancelled:
+            raise
+        except DownloadError:
+            # B 站 API 路径失败时回退 yt-dlp，兼容非常规 B 站链接（番剧、课程等）。
+            pass
 
     workdir = Path(task.workdir or TEMP_ROOT / task.task_id)
     selector = QUALITY_SELECTORS.get(quality, {}).get("selector", DEFAULT_FORMAT)

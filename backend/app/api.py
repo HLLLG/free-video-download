@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import Request as URLRequest, urlopen
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
@@ -129,10 +129,10 @@ async def thumbnail(
     if referer:
         headers["Referer"] = referer
 
-    request = Request(url, headers=headers)
+    upstream_request = URLRequest(url, headers=headers)
 
     def _fetch() -> tuple[bytes, str]:
-        with urlopen(request, timeout=10) as response:
+        with urlopen(upstream_request, timeout=10) as response:
             return response.read(), response.headers.get("Content-Type", "image/jpeg")
 
     try:

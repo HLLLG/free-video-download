@@ -286,12 +286,39 @@
             <a href="#features">功能亮点</a>
             <a href="#pricing">价格</a>
             <a href="#faq">常见问题</a>
-            <button id="membershipBadge" class="membership-badge free" type="button">
-              <i data-lucide="sparkles"></i>
-              <span>Free</span>
+            <button id="authEntryBtn" class="ghost-btn" type="button" data-open-auth>
+              <i data-lucide="log-in"></i>
+              <span>登录 / 注册</span>
             </button>
-            <button class="ghost-btn" type="button" data-open-restore>恢复会员</button>
-            <button class="pro-btn" type="button" data-scroll="#pricing">
+            <div id="authUserWrap" class="auth-user hidden" aria-live="polite">
+              <i data-lucide="user-round"></i>
+              <span id="authUserEmail" class="auth-user-email">-</span>
+              <button id="logoutBtn" class="ghost-btn small" type="button">
+                <span>退出</span>
+              </button>
+            </div>
+            <div id="membershipMenuWrap" class="membership-menu-wrap">
+              <button id="membershipBadge" class="membership-badge free" type="button">
+                <i data-lucide="sparkles"></i>
+                <span>Free</span>
+              </button>
+              <div id="membershipDropdown" class="membership-dropdown hidden" role="menu" aria-label="会员中心菜单">
+                <button id="membershipMenuViewBtn" class="membership-menu-item" type="button" role="menuitem">
+                  <i data-lucide="shield-check"></i>
+                  <span>查看权益</span>
+                </button>
+                <button id="membershipMenuCopyBtn" class="membership-menu-item" type="button" role="menuitem">
+                  <i data-lucide="copy"></i>
+                  <span>复制密钥</span>
+                </button>
+                <button id="membershipMenuLogoutBtn" class="membership-menu-item danger" type="button" role="menuitem">
+                  <i data-lucide="log-out"></i>
+                  <span>退出登录</span>
+                </button>
+              </div>
+            </div>
+            <button id="restoreMembershipNavBtn" class="ghost-btn hidden" type="button" data-open-restore>恢复会员</button>
+            <button id="upgradeProNavBtn" class="pro-btn hidden" type="button">
               <i data-lucide="crown"></i>
               <span>升级 Pro</span>
             </button>
@@ -700,16 +727,95 @@
         </section>
       </main>
 
-      <div id="proModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div id="authModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
         <div class="modal-card">
-          <button id="closeModal" class="modal-close" type="button" aria-label="关闭">×</button>
-          <p class="eyebrow">Pro 专享</p>
-          <h3>4K 下载和超长 AI 总结已接入 Pro</h3>
-          <p>开通后可立即解锁 4K 下载、AI 总结不限次数，以及最长 120 分钟视频总结。支付成功后系统会返回会员密钥，请一定保存。</p>
-          <div class="modal-actions">
-            <button class="pro-btn full" type="button" data-buy-plan="monthly">
-              <span>购买月卡 ¥9.9</span>
+          <button id="closeAuthModal" class="modal-close" type="button" aria-label="关闭">×</button>
+          <p class="eyebrow">账号中心</p>
+          <h3 id="authModalTitle">先登录，再购买 Pro 会员</h3>
+          <p>登录后会绑定你的购买邮箱，后续换设备可直接恢复会员与订单记录。</p>
+          <div class="auth-tabs" role="tablist" aria-label="登录注册切换">
+            <button class="auth-tab active" type="button" data-auth-tab="login">登录</button>
+            <button class="auth-tab" type="button" data-auth-tab="register">注册</button>
+          </div>
+          <form id="loginForm" class="auth-form">
+            <label class="field-group" for="loginEmail">
+              <span>邮箱</span>
+              <input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+            </label>
+            <label class="field-group" for="loginPassword">
+              <span>密码</span>
+              <input id="loginPassword" type="password" autocomplete="current-password" placeholder="请输入密码" minlength="8" required />
+            </label>
+            <button class="primary-btn full" type="submit">
+              <i data-lucide="log-in"></i>
+              <span>登录账号</span>
             </button>
+          </form>
+          <form id="registerForm" class="auth-form hidden">
+            <label class="field-group" for="registerEmail">
+              <span>邮箱</span>
+              <input id="registerEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+            </label>
+            <label class="field-group" for="registerPassword">
+              <span>密码（至少 8 位）</span>
+              <input id="registerPassword" type="password" autocomplete="new-password" placeholder="请设置登录密码" minlength="8" required />
+            </label>
+            <label class="field-group" for="registerMembershipKey">
+              <span>已有会员密钥（可选）</span>
+              <input id="registerMembershipKey" type="text" autocomplete="off" placeholder="老会员绑定时填写，否则留空" />
+            </label>
+            <button class="primary-btn full" type="submit">
+              <i data-lucide="user-plus"></i>
+              <span>注册并登录</span>
+            </button>
+          </form>
+          <div id="authStatus" class="status-box hidden" role="status"></div>
+        </div>
+      </div>
+
+      <div id="proModal" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-card pro-modal-card">
+          <button id="closeModal" class="modal-close" type="button" aria-label="关闭">×</button>
+          <p id="proModalEyebrow" class="eyebrow">Pro 专享</p>
+          <h3 id="proModalTitle">选择方案，立即解锁 Pro 权益</h3>
+          <p id="proModalDesc">开通后立即生效。支付成功后系统会返回会员密钥，可在新设备或新浏览器恢复会员。</p>
+
+          <div class="pro-benefits-grid" aria-label="Pro 权益清单">
+            <span class="pro-benefit-chip"><i data-lucide="badge-check"></i><span>4K 超清下载</span></span>
+            <span class="pro-benefit-chip"><i data-lucide="sparkles"></i><span>AI 总结不限次数</span></span>
+            <span class="pro-benefit-chip"><i data-lucide="clock-3"></i><span>单视频最长 120 分钟总结</span></span>
+            <span class="pro-benefit-chip"><i data-lucide="key-round"></i><span>会员密钥多端恢复</span></span>
+          </div>
+
+          <div class="pro-plans-grid">
+            <article class="pro-plan-card">
+              <p class="small-label">
+                <i data-lucide="calendar-days"></i>
+                <span>Pro 月卡</span>
+              </p>
+              <p class="pro-plan-price">¥9.9 <span>/ 30 天</span></p>
+              <p class="pro-plan-desc">轻量体验，适合短期高频下载与总结。</p>
+              <button class="ghost-btn full" type="button" data-buy-plan="monthly">
+                <span>购买月卡</span>
+              </button>
+            </article>
+
+            <article class="pro-plan-card featured">
+              <span class="recommend">推荐</span>
+              <p class="small-label">
+                <i data-lucide="calendar-range"></i>
+                <span>Pro 年卡</span>
+              </p>
+              <p class="pro-plan-price">¥99 <span>/ 365 天</span></p>
+              <p class="pro-plan-desc">长期使用更划算，全年稳定解锁所有 Pro 能力。</p>
+              <p id="proYearlySave" class="pro-plan-save">相比月卡省约 17%</p>
+              <button class="pro-btn full" type="button" data-buy-plan="yearly">
+                <span>购买年卡</span>
+              </button>
+            </article>
+          </div>
+
+          <div class="modal-actions pro-modal-actions">
             <button class="ghost-btn full" type="button" data-open-restore>恢复已购会员</button>
           </div>
         </div>

@@ -145,6 +145,78 @@ button {
   background: rgba(255, 181, 71, 0.12);
 }
 
+.membership-menu-wrap {
+  position: relative;
+}
+
+.membership-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 35;
+  display: grid;
+  gap: 4px;
+  min-width: 164px;
+  border: 1px solid #e8ebf4;
+  border-radius: 14px;
+  padding: 8px;
+  background: white;
+  box-shadow: 0 16px 40px rgba(23, 32, 51, 0.16);
+}
+
+.membership-menu-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 10px;
+  color: #344057;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  background: transparent;
+}
+
+.membership-menu-item:hover {
+  background: #f5f7ff;
+}
+
+.membership-menu-item svg {
+  width: 14px;
+  height: 14px;
+}
+
+.membership-menu-item.danger {
+  color: #b23a3a;
+}
+
+.membership-menu-item.danger:hover {
+  background: #fff5f5;
+}
+
+.auth-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 1px solid #e2e6f0;
+  border-radius: 999px;
+  padding: 2px 8px 2px 12px;
+  background: white;
+  color: #344057;
+}
+
+.auth-user-email {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .hero {
   display: grid;
   gap: 20px;
@@ -767,6 +839,26 @@ button {
   background: #fff6f6;
 }
 
+.summary-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.pro-btn.small {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 8px 22px rgba(255, 181, 71, 0.24);
+}
+
+.pro-btn.small svg {
+  width: 14px;
+  height: 14px;
+}
+
 .summary-empty {
   display: grid;
   place-items: center;
@@ -1287,6 +1379,130 @@ button {
   padding: 28px;
 }
 
+.pro-modal-card {
+  width: min(780px, 100%);
+}
+
+.pro-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.pro-benefit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(91, 91, 255, 0.2);
+  border-radius: 12px;
+  padding: 8px 10px;
+  color: #38425a;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(91, 91, 255, 0.05);
+}
+
+.pro-benefit-chip svg {
+  width: 14px;
+  height: 14px;
+  color: var(--primary);
+}
+
+.pro-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.pro-plan-card {
+  position: relative;
+  border: 1px solid #e4e8f3;
+  border-radius: 16px;
+  padding: 14px;
+  background: #fbfcff;
+}
+
+.pro-plan-card.featured {
+  border-color: rgba(255, 181, 71, 0.54);
+  background: linear-gradient(135deg, rgba(255, 248, 226, 0.9), rgba(255, 255, 255, 0.96));
+  box-shadow: 0 12px 28px rgba(255, 181, 71, 0.16);
+}
+
+.pro-plan-card .recommend {
+  top: 10px;
+  right: 10px;
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+.pro-plan-price {
+  margin: 10px 0 6px;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.pro-plan-price span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.pro-plan-desc {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.pro-plan-save {
+  margin: 0 0 10px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: #5d3900;
+  font-size: 12px;
+  font-weight: 800;
+  background: rgba(255, 181, 71, 0.2);
+}
+
+.pro-modal-actions {
+  margin-top: 12px;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.auth-tab {
+  min-height: 40px;
+  border: 1px solid #e2e6f0;
+  border-radius: 999px;
+  font-weight: 800;
+  color: #344057;
+  background: white;
+}
+
+.auth-tab.active {
+  color: white;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--primary), var(--purple));
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
 .restore-form {
   display: grid;
   gap: 14px;
@@ -1559,6 +1775,11 @@ body.no-scroll {
   }
 
   .use-case-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pro-benefits-grid,
+  .pro-plans-grid {
     grid-template-columns: 1fr;
   }
 
